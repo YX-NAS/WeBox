@@ -29,6 +29,38 @@ public struct InstanceManager: Sendable {
         try repository.delete(id: instance.id)
     }
 
+    public func repairLegacyBundleIdentifiers() throws {
+        for instance in try repository.all() {
+            let expectedIdentifier = bundleManager.bundleIdentifier(for: instance.name)
+            guard instance.bundleIdentifier != expectedIdentifier else { continue }
+
+            var repaired = instance
+            let appURL = URL(fileURLWithPath: instance.appPath)
+            guard FileManager.default.fileExists(atPath: appURL.path) else {
+                repaired.status = .error
+                try repository.save(repaired)
+                continue
+            }
+
+            if ProcessManager().pid(instance: instance) != nil {
+                repaired.status = .needUpdate
+                try repository.save(repaired)
+                continue
+            }
+
+            do {
+                try bundleManager.updateBundleIdentifier(appPath: instance.appPath, bundleIdentifier: expectedIdentifier)
+                try signatureManager.sign(appPath: instance.appPath)
+                repaired.bundleIdentifier = expectedIdentifier
+                repaired.status = .ready
+                try repository.save(repaired)
+            } catch {
+                repaired.status = .error
+                try? repository.save(repaired)
+            }
+        }
+    }
+
     private func availableTarget(for name: String, installDirectory: String) throws -> (String, String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let baseName = trimmedName.isEmpty ? "微信实例" : trimmedName.replacingOccurrences(of: "/", with: "-")

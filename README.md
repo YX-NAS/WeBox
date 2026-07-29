@@ -3,7 +3,7 @@
 > 微信多实例管理工具：多账号、独立运行、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.0-6C5CE7)
+![Version](https://img.shields.io/badge/version-0.2.1-6C5CE7)
 
 WeBox 通过创建原版微信应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改微信协议、不读取消息，也不自动化操作账号。
 

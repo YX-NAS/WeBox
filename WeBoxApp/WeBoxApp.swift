@@ -9,6 +9,7 @@ struct WeBoxApp: App {
             ContentView(model: model)
         }
         .windowStyle(.titleBar)
+        .defaultSize(width: 900, height: 460)
 
         MenuBarExtra {
             StatusBarView(model: model)

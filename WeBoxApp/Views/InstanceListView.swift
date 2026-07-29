@@ -15,37 +15,56 @@ final class InstanceListViewModel: ObservableObject {
     init() {
         do {
             let database = try Database.defaultDatabase()
-            repository = try InstanceRepository(database: database)
-            refresh()
+            let repository = try InstanceRepository(database: database)
+            try InstanceManager(repository: repository).repairLegacyBundleIdentifiers()
+            self.repository = repository
         } catch {
-            repository = nil
+            self.repository = nil
             errorMessage = error.localizedDescription
         }
+        refresh()
     }
 
     func refresh() {
-        do { instances = try repository?.all() ?? [] }
+        do {
+            guard let repository else { instances = []; return }
+            for instance in try repository.all() {
+                let appExists = FileManager.default.fileExists(atPath: instance.appPath)
+                let isRunning = appExists && processManager.pid(instance: instance) != nil
+                let nextStatus: InstanceStatus = !appExists ? .error : (isRunning ? .running : (instance.status == .running ? .stopped : instance.status))
+                if nextStatus != instance.status { try repository.updateStatus(id: instance.id, status: nextStatus) }
+            }
+            instances = try repository.all()
+        }
         catch { errorMessage = error.localizedDescription }
     }
 
     func createInstance(named name: String) {
+        guard !isCreating else { return }
+        guard let repository else { errorMessage = WeBoxError.databaseUnavailable.localizedDescription; return }
         isCreating = true
-        defer { isCreating = false }
-        do {
-            guard let repository else { throw WeBoxError.databaseUnavailable }
-            let info = try detector.detect()
-            _ = try InstanceManager(repository: repository).createInstance(name: name, sourceInfo: info)
-            refresh()
-        } catch { errorMessage = error.localizedDescription }
+        let detector = detector
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result {
+                let info = try detector.detect()
+                return try InstanceManager(repository: repository).createInstance(name: name, sourceInfo: info)
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isCreating = false
+                if case let .failure(error) = result { self.errorMessage = error.localizedDescription }
+                self.refresh()
+            }
+        }
     }
 
     func start(_ instance: WeChatInstance) {
-        do { try processManager.start(instance: instance); refresh() }
+        do { try processManager.start(instance: instance); refreshAfterProcessChange() }
         catch { errorMessage = error.localizedDescription }
     }
 
     func stop(_ instance: WeChatInstance) {
-        do { try processManager.stop(instance: instance); refresh() }
+        do { try processManager.stop(instance: instance); refreshAfterProcessChange() }
         catch { errorMessage = error.localizedDescription }
     }
 
@@ -55,6 +74,10 @@ final class InstanceListViewModel: ObservableObject {
             try InstanceManager(repository: repository).deleteInstance(instance)
             refresh()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func refreshAfterProcessChange() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.refresh() }
     }
 }
 
@@ -80,7 +103,9 @@ struct InstanceListView: View {
                     EmptyInstanceView(createAction: { isShowingCreateSheet = true })
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 18)], spacing: 18) {
+                        SummaryStrip(instances: model.instances)
+                            .padding(.bottom, 12)
+                        LazyVStack(spacing: 10) {
                             ForEach(model.instances) { instance in
                                 InstanceCard(
                                     instance: instance,
@@ -90,7 +115,7 @@ struct InstanceListView: View {
                                 )
                             }
                         }
-                        .padding(28)
+                        .padding(18)
                     }
                 }
 
@@ -114,6 +139,9 @@ struct InstanceListView: View {
             Button("取消", role: .cancel) { instancePendingDeletion = nil }
         } message: {
             Text("将关闭并把“\(instancePendingDeletion?.name ?? "")”移入废纸篓。")
+        }
+        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
+            model.refresh()
         }
     }
 
@@ -144,8 +172,8 @@ struct InstanceListView: View {
             .controlSize(.large)
             .disabled(model.isCreating)
         }
-        .padding(.horizontal, 30)
-        .padding(.vertical, 17)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
     }
 
@@ -157,8 +185,8 @@ struct InstanceListView: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 30)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 8)
         .background(.ultraThinMaterial)
     }
 }
@@ -196,23 +224,22 @@ private struct InstanceCard: View {
     let deleteAction: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(LinearGradient(colors: [.blue.opacity(0.16), .purple.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    BrandIconView().padding(8)
-                }
-                .frame(width: 76, height: 76)
-
-                Spacer()
-                StatusBadge(status: instance.status)
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    .fill(LinearGradient(colors: [.blue.opacity(0.16), .purple.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                BrandIconView()
             }
+            .frame(width: 64, height: 64)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(instance.name).font(.title3.bold()).lineLimit(1)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(instance.name).font(.headline).lineLimit(1)
+                    Spacer(minLength: 4)
+                    StatusBadge(status: instance.status)
+                }
                 Text("微信 \(instance.version)")
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(instance.bundleIdentifier)
                     .font(.caption.monospaced())
@@ -220,16 +247,17 @@ private struct InstanceCard: View {
                     .lineLimit(1)
             }
 
-            HStack(spacing: 10) {
-                IconActionButton(title: "启动", icon: "play.fill", tint: .green, action: startAction)
-                IconActionButton(title: "关闭", icon: "stop.fill", tint: .orange, action: stopAction)
-                IconActionButton(title: "删除", icon: "trash.fill", tint: .red, action: deleteAction)
+            HStack(spacing: 6) {
+                CompactActionButton(title: "启动", icon: "play.fill", tint: .green, action: startAction)
+                CompactActionButton(title: "关闭", icon: "stop.fill", tint: .orange, action: stopAction)
+                CompactActionButton(title: "删除", icon: "trash", tint: .red, action: deleteAction)
             }
         }
-        .padding(20)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(LinearGradient(colors: [.white.opacity(0.9), .blue.opacity(0.16)], startPoint: .topLeading, endPoint: .bottomTrailing)))
-        .shadow(color: Color.blue.opacity(0.08), radius: 14, y: 7)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 19, style: .continuous).strokeBorder(LinearGradient(colors: [.white.opacity(0.9), .blue.opacity(0.16)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .shadow(color: Color.blue.opacity(0.06), radius: 8, y: 4)
     }
 
     private var statusColor: Color {
@@ -253,7 +281,7 @@ private struct StatusBadge: View {
     }
 }
 
-private struct IconActionButton: View {
+private struct CompactActionButton: View {
     let title: String
     let icon: String
     let tint: Color
@@ -261,12 +289,8 @@ private struct IconActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: icon).font(.title3.weight(.semibold))
-                Text(title).font(.caption.weight(.medium))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
+            Image(systemName: icon).font(.body.weight(.semibold))
+                .frame(width: 30, height: 30)
         }
         .buttonStyle(.bordered)
         .tint(tint)
@@ -324,12 +348,41 @@ private struct BrandIconView: View {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
-                .scaledToFit()
+                .scaledToFill()
+                .scaleEffect(1.27)
+                .clipped()
         } else {
             Image(systemName: "message.badge.fill")
                 .resizable()
                 .scaledToFit()
                 .foregroundStyle(.blue)
+        }
+    }
+}
+
+private struct SummaryStrip: View {
+    let instances: [WeChatInstance]
+
+    var body: some View {
+        HStack(spacing: 18) {
+            metric(title: "全部", value: instances.count, color: .blue)
+            metric(title: "运行中", value: instances.filter { $0.status == .running }.count, color: .green)
+            metric(title: "待更新", value: instances.filter { $0.status == .needUpdate }.count, color: .orange)
+            Spacer()
+            Text("状态每 3 秒自动刷新")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func metric(title: String, value: Int, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text("\(value)").font(.headline.monospacedDigit())
+            Text(title).font(.caption).foregroundStyle(.secondary)
         }
     }
 }

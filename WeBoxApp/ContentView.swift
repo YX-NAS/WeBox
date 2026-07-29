@@ -6,6 +6,6 @@ struct ContentView: View {
 
     var body: some View {
         InstanceListView(model: model)
-            .frame(minWidth: 860, minHeight: 580)
+            .frame(minWidth: 760, minHeight: 430)
     }
 }

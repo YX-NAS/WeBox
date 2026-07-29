@@ -6,6 +6,7 @@ public struct BundleManager: Sendable {
         let slug = name.lowercased().unicodeScalars.map { scalar -> String in
             switch scalar.value {
             case 48...57, 97...122: String(scalar)
+            case 0x4E00...0x9FFF: "u" + String(scalar.value, radix: 16)
             default: "-"
             }
         }.joined().split(separator: "-").filter { !$0.isEmpty }.joined(separator: "-")
