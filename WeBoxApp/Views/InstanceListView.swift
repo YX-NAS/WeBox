@@ -178,10 +178,18 @@ struct InstanceListView: View {
     }
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 12) {
             Label("本地管理，不读取聊天内容", systemImage: "lock.shield")
+            Divider().frame(height: 12)
+            Text("© 2026 YX-NAS")
             Spacer()
-            Text("WeBox v\(AppVersion.current) · macOS 13+")
+            Text("开发版 v\(AppVersion.current) (\(AppVersion.build))")
+            Text("发布于 \(AppReleaseInfo.date)")
+            Button(action: AppReleaseInfo.openReleasePage) {
+                Label("检查更新", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .buttonStyle(.borderless)
+            .help("在 GitHub Releases 中查看最新版本")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -429,6 +437,9 @@ struct StatusBarView: View {
             Button { model.refresh() } label: {
                 Label("刷新实例状态", systemImage: "arrow.clockwise")
             }
+            Button(action: AppReleaseInfo.openReleasePage) {
+                Label("检查更新", systemImage: "arrow.triangle.2.circlepath")
+            }
             Button("退出 WeBox", role: .destructive) { NSApplication.shared.terminate(nil) }
         }
         .padding(16)
@@ -449,5 +460,18 @@ struct StatusBarView: View {
 enum AppVersion {
     static var current: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
+    }
+
+    static var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+    }
+}
+
+enum AppReleaseInfo {
+    static let date = "2026-07-29"
+    static let releasesURL = URL(string: "https://github.com/YX-NAS/WeBox/releases")!
+
+    static func openReleasePage() {
+        NSWorkspace.shared.open(releasesURL)
     }
 }
