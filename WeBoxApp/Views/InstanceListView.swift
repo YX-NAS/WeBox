@@ -158,9 +158,13 @@ struct InstanceListView: View {
                     EmptyInstanceView(createAction: { isShowingCreateSheet = true })
                 } else {
                     ScrollView {
-                        SummaryStrip(instances: model.instances, checkAction: model.checkAll)
+                        SummaryStrip(
+                            instances: model.instances,
+                            searchText: $searchText,
+                            selectedStatus: $selectedStatus,
+                            checkAction: model.checkAll
+                        )
                             .padding(.bottom, 12)
-                        instanceControls
                         LazyVStack(spacing: 10) {
                             ForEach(visibleInstances) { instance in
                                 InstanceCard(
@@ -247,27 +251,6 @@ struct InstanceListView: View {
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
-    }
-
-    private var instanceControls: some View {
-        HStack(spacing: 10) {
-            TextField("搜索实例", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 240)
-            Picker("状态", selection: $selectedStatus) {
-                Text("全部状态").tag(InstanceStatus?.none)
-                ForEach(InstanceStatus.allCases, id: \.self) { status in
-                    Text(status.displayName).tag(Optional(status))
-                }
-            }
-            .labelsHidden()
-            .frame(width: 112)
-            Spacer()
-            Text("显示 \(visibleInstances.count) / \(model.instances.count)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.bottom, 10)
     }
 
     private var visibleInstances: [WeChatInstance] {
@@ -482,6 +465,8 @@ private struct BrandIconView: View {
 
 private struct SummaryStrip: View {
     let instances: [WeChatInstance]
+    @Binding var searchText: String
+    @Binding var selectedStatus: InstanceStatus?
     let checkAction: () -> Void
 
     var body: some View {
@@ -489,7 +474,26 @@ private struct SummaryStrip: View {
             metric(title: "全部", value: instances.count, color: .blue)
             metric(title: "运行中", value: instances.filter { $0.status == .running }.count, color: .green)
             metric(title: "待更新", value: instances.filter { $0.status == .needUpdate }.count, color: .orange)
-            Spacer()
+            Spacer(minLength: 18)
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("搜索实例", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .frame(width: 210)
+                Picker("状态", selection: $selectedStatus) {
+                    Text("全部").tag(InstanceStatus?.none)
+                    ForEach(InstanceStatus.allCases, id: \.self) { status in
+                        Text(status.displayName).tag(Optional(status))
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 84)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.quaternary, in: Capsule())
+            Spacer(minLength: 18)
             Button("检查全部", action: checkAction)
                 .buttonStyle(.borderless)
             Text("状态每 3 秒自动刷新")
