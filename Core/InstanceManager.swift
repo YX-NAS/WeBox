@@ -29,6 +29,18 @@ public struct InstanceManager: Sendable {
         try repository.delete(id: instance.id)
     }
 
+    public func repairInstance(_ instance: WeChatInstance) throws {
+        guard FileManager.default.fileExists(atPath: instance.appPath) else {
+            throw WeBoxError.invalidAppBundle(instance.appPath)
+        }
+        guard ProcessManager().pid(instance: instance) == nil else {
+            throw WeBoxError.instanceIsRunning(instance.name)
+        }
+        try bundleManager.updateBundleIdentifier(appPath: instance.appPath, bundleIdentifier: instance.bundleIdentifier)
+        try signatureManager.sign(appPath: instance.appPath)
+        try repository.updateStatus(id: instance.id, status: .ready)
+    }
+
     public func repairLegacyBundleIdentifiers() throws {
         for instance in try repository.all() {
             let expectedIdentifier = bundleManager.bundleIdentifier(for: instance.name)

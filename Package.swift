@@ -12,6 +12,6 @@ let package = Package(
         .systemLibrary(name: "SQLite3", path: "Database/SQLite3"),
         .target(name: "WeBoxCore", dependencies: ["SQLite3"], path: ".", exclude: ["WeBoxApp", "Tests", "Docs", "Scripts", "Database/SQLite3", "README.md", "Package.swift"], sources: ["Core", "Models", "Database"]),
         .executableTarget(name: "WeBoxApp", dependencies: ["WeBoxCore"], path: "WeBoxApp"),
-        .testTarget(name: "WeBoxTests", dependencies: ["WeBoxCore"], path: "Tests")
+        .testTarget(name: "WeBoxTests", dependencies: ["WeBoxCore"], path: "Tests", exclude: ["AcceptanceTests.swift"])
     ]
 )

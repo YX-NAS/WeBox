@@ -5,6 +5,7 @@ import WeBoxCore
 @MainActor
 final class InstanceListViewModel: ObservableObject {
     @Published var instances: [WeChatInstance] = []
+    @Published var healthReports: [UUID: InstanceHealthReport] = [:]
     @Published var errorMessage: String?
     @Published var isCreating = false
 
@@ -28,10 +29,15 @@ final class InstanceListViewModel: ObservableObject {
     func refresh() {
         do {
             guard let repository else { instances = []; return }
+            let currentWeChat = try? detector.detect()
             for instance in try repository.all() {
                 let appExists = FileManager.default.fileExists(atPath: instance.appPath)
                 let isRunning = appExists && processManager.pid(instance: instance) != nil
-                let nextStatus: InstanceStatus = !appExists ? .error : (isRunning ? .running : (instance.status == .running ? .stopped : instance.status))
+                let nextStatus: InstanceStatus
+                if !appExists { nextStatus = .error }
+                else if isRunning { nextStatus = .running }
+                else if let currentWeChat, instance.version != currentWeChat.version { nextStatus = .needUpdate }
+                else { nextStatus = instance.status == .running ? .stopped : instance.status }
                 if nextStatus != instance.status { try repository.updateStatus(id: instance.id, status: nextStatus) }
             }
             instances = try repository.all()
@@ -76,6 +82,52 @@ final class InstanceListViewModel: ObservableObject {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    func repair(_ instance: WeChatInstance) {
+        do {
+            guard let repository else { throw WeBoxError.databaseUnavailable }
+            try InstanceManager(repository: repository).repairInstance(instance)
+            refresh()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func checkAll() {
+        guard let repository else { errorMessage = WeBoxError.databaseUnavailable.localizedDescription; return }
+        let detector = detector
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let currentWeChat = try? detector.detect()
+            let reports = (try? repository.all().map { InstanceHealthChecker().check(instance: $0, currentWeChat: currentWeChat) }) ?? []
+            for report in reports { try? repository.updateStatus(id: report.instanceID, status: report.status) }
+            DispatchQueue.main.async {
+                self?.healthReports = Dictionary(uniqueKeysWithValues: reports.map { ($0.instanceID, $0) })
+                self?.refresh()
+            }
+        }
+    }
+
+    func startAll(_ target: [WeChatInstance]) {
+        for instance in target where processManager.pid(instance: instance) == nil {
+            do { try processManager.start(instance: instance) } catch { errorMessage = error.localizedDescription; break }
+        }
+        refreshAfterProcessChange()
+    }
+
+    func stopAll(_ target: [WeChatInstance]) {
+        for instance in target where processManager.pid(instance: instance) != nil {
+            do { try processManager.stop(instance: instance) } catch { errorMessage = error.localizedDescription; break }
+        }
+        refreshAfterProcessChange()
+    }
+
+    func diagnosticsText() -> String {
+        let header = ["WeBox v\(AppVersion.current) (\(AppVersion.build))", "生成时间：\(ISO8601DateFormatter().string(from: Date()))", "实例数：\(instances.count)"]
+        let rows = instances.map { instance in
+            let report = healthReports[instance.id]
+            let healthSummary = report?.summary ?? "未执行完整检查"
+            return ["名称：\(instance.name)", "状态：\(instance.status.displayName)", "版本：\(instance.version)", "Bundle ID：\(instance.bundleIdentifier)", "路径：\(instance.appPath)", "检查：\(healthSummary)"].joined(separator: "\n")
+        }
+        return (header + [""] + rows).joined(separator: "\n\n")
+    }
+
     private func refreshAfterProcessChange() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.refresh() }
     }
@@ -85,6 +137,9 @@ struct InstanceListView: View {
     @ObservedObject var model: InstanceListViewModel
     @State private var isShowingCreateSheet = false
     @State private var instancePendingDeletion: WeChatInstance?
+    @State private var searchText = ""
+    @State private var selectedStatus: InstanceStatus?
+    @State private var isShowingDiagnostics = false
 
     var body: some View {
         ZStack {
@@ -103,14 +158,17 @@ struct InstanceListView: View {
                     EmptyInstanceView(createAction: { isShowingCreateSheet = true })
                 } else {
                     ScrollView {
-                        SummaryStrip(instances: model.instances)
+                        SummaryStrip(instances: model.instances, checkAction: model.checkAll)
                             .padding(.bottom, 12)
+                        instanceControls
                         LazyVStack(spacing: 10) {
-                            ForEach(model.instances) { instance in
+                            ForEach(visibleInstances) { instance in
                                 InstanceCard(
                                     instance: instance,
+                                    healthReport: model.healthReports[instance.id],
                                     startAction: { model.start(instance) },
                                     stopAction: { model.stop(instance) },
+                                    repairAction: { model.repair(instance) },
                                     deleteAction: { instancePendingDeletion = instance }
                                 )
                             }
@@ -139,6 +197,9 @@ struct InstanceListView: View {
             Button("取消", role: .cancel) { instancePendingDeletion = nil }
         } message: {
             Text("将关闭并把“\(instancePendingDeletion?.name ?? "")”移入废纸篓。")
+        }
+        .sheet(isPresented: $isShowingDiagnostics) {
+            DiagnosticsView(text: model.diagnosticsText())
         }
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             model.refresh()
@@ -171,10 +232,50 @@ struct InstanceListView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(model.isCreating)
+            Menu {
+                Button { model.checkAll() } label: { Label("检查全部实例", systemImage: "checkmark.shield") }
+                Button { model.startAll(visibleInstances) } label: { Label("启动可见实例", systemImage: "play.fill") }
+                Button { model.stopAll(visibleInstances) } label: { Label("关闭可见实例", systemImage: "stop.fill") }
+                Divider()
+                Button { isShowingDiagnostics = true } label: { Label("查看诊断信息", systemImage: "stethoscope") }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .help("更多操作")
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
+    }
+
+    private var instanceControls: some View {
+        HStack(spacing: 10) {
+            TextField("搜索实例", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 240)
+            Picker("状态", selection: $selectedStatus) {
+                Text("全部状态").tag(InstanceStatus?.none)
+                ForEach(InstanceStatus.allCases, id: \.self) { status in
+                    Text(status.displayName).tag(Optional(status))
+                }
+            }
+            .labelsHidden()
+            .frame(width: 112)
+            Spacer()
+            Text("显示 \(visibleInstances.count) / \(model.instances.count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 10)
+    }
+
+    private var visibleInstances: [WeChatInstance] {
+        model.instances.filter { instance in
+            let matchesText = searchText.isEmpty || instance.name.localizedCaseInsensitiveContains(searchText) || instance.bundleIdentifier.localizedCaseInsensitiveContains(searchText)
+            let matchesStatus = selectedStatus == nil || instance.status == selectedStatus
+            return matchesText && matchesStatus
+        }
     }
 
     private var footer: some View {
@@ -227,8 +328,10 @@ private struct EmptyInstanceView: View {
 
 private struct InstanceCard: View {
     let instance: WeChatInstance
+    let healthReport: InstanceHealthReport?
     let startAction: () -> Void
     let stopAction: () -> Void
+    let repairAction: () -> Void
     let deleteAction: () -> Void
 
     var body: some View {
@@ -253,11 +356,20 @@ private struct InstanceCard: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
+                if let healthReport, !healthReport.issues.isEmpty {
+                    Text(healthReport.summary)
+                        .font(.caption)
+                        .foregroundStyle(instance.status == .needUpdate ? .orange : .red)
+                        .lineLimit(1)
+                }
             }
 
             HStack(spacing: 6) {
                 CompactActionButton(title: "启动", icon: "play.fill", tint: .green, action: startAction)
                 CompactActionButton(title: "关闭", icon: "stop.fill", tint: .orange, action: stopAction)
+                if healthReport?.canRepair == true || (healthReport == nil && instance.status == .error) {
+                    CompactActionButton(title: "修复", icon: "wrench.and.screwdriver", tint: .blue, action: repairAction)
+                }
                 CompactActionButton(title: "删除", icon: "trash", tint: .red, action: deleteAction)
             }
         }
@@ -370,6 +482,7 @@ private struct BrandIconView: View {
 
 private struct SummaryStrip: View {
     let instances: [WeChatInstance]
+    let checkAction: () -> Void
 
     var body: some View {
         HStack(spacing: 18) {
@@ -377,6 +490,8 @@ private struct SummaryStrip: View {
             metric(title: "运行中", value: instances.filter { $0.status == .running }.count, color: .green)
             metric(title: "待更新", value: instances.filter { $0.status == .needUpdate }.count, color: .orange)
             Spacer()
+            Button("检查全部", action: checkAction)
+                .buttonStyle(.borderless)
             Text("状态每 3 秒自动刷新")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -392,6 +507,32 @@ private struct SummaryStrip: View {
             Text("\(value)").font(.headline.monospacedDigit())
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct DiagnosticsView: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("诊断信息").font(.title2.bold())
+            Text("仅包含 WeBox 版本与实例技术状态，不包含微信账号或聊天内容。")
+                .font(.caption).foregroundStyle(.secondary)
+            ScrollView {
+                Text(text)
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            HStack {
+                Button("复制") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) }
+                Spacer()
+                Button("完成") { dismiss() }
+            }
+        }
+        .padding(24)
+        .frame(width: 620, height: 440)
     }
 }
 

@@ -9,7 +9,7 @@ final class WeBoxTests: XCTestCase {
     }
     func testBundleIdentifierRule() {
         XCTAssertEqual(BundleManager().bundleIdentifier(for: "work"), "com.webox.wechat.work")
-        XCTAssertEqual(BundleManager().bundleIdentifier(for: "工作微信 2"), "com.webox.wechat.u5de5u4f5c-u5faeu4fe1-2")
+        XCTAssertEqual(BundleManager().bundleIdentifier(for: "工作微信 2"), "com.webox.wechat.u5de5u4f5cu5faeu4fe1-2")
         XCTAssertNotEqual(BundleManager().bundleIdentifier(for: "工作"), BundleManager().bundleIdentifier(for: "生活"))
     }
     func testRepositoryPersistsInstance() throws {

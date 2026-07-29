@@ -3,7 +3,7 @@
 > 微信多实例管理工具：多账号、独立运行、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.1-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.0.0-6C5CE7)
 
 WeBox 通过创建原版微信应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改微信协议、不读取消息，也不自动化操作账号。
 
@@ -16,6 +16,8 @@ WeBox 通过创建原版微信应用副本，为每个副本生成独立的 Bund
 - SQLite 本地保存实例列表，重启应用后仍可恢复。
 - 状态栏入口显示运行账号数和每个账号的实时状态。
 - 检测原版微信升级，标记需要更新的副本。
+- 一键检查副本路径、Bundle Identifier、签名及原版微信版本；未运行副本可修复签名。
+- 搜索、状态筛选、批量启动/关闭，以及不含账号内容的本地诊断信息。
 
 ## 使用方式
 
@@ -42,11 +44,11 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信的商
 要求：macOS 13+、Swift 6+、Command Line Tools 或 Xcode。
 
 ```bash
-swift test
+./Scripts/test.sh
 ./Scripts/release.sh
 ```
 
-构建产物位于 `Release/WeBox.dmg`。完整测试说明见 [Docs/TESTING.md](Docs/TESTING.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+构建产物位于 `Release/WeBox-v1.0.0-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
 
 ## 项目结构
 
