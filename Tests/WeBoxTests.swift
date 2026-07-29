@@ -9,6 +9,7 @@ final class WeBoxTests: XCTestCase {
     }
     func testBundleIdentifierRule() {
         XCTAssertEqual(BundleManager().bundleIdentifier(for: "work"), "com.webox.wechat.work")
+        XCTAssertEqual(BundleManager().bundleIdentifier(for: "工作微信 2"), "com.webox.wechat.2")
     }
     func testRepositoryPersistsInstance() throws {
         let path = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).path

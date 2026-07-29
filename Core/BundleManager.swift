@@ -3,7 +3,12 @@ import Foundation
 public struct BundleManager: Sendable {
     public init() {}
     public func bundleIdentifier(for name: String) -> String {
-        let slug = name.lowercased().unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? String($0) : "-" }.joined().split(separator: "-").filter { !$0.isEmpty }.joined(separator: "-")
+        let slug = name.lowercased().unicodeScalars.map { scalar -> String in
+            switch scalar.value {
+            case 48...57, 97...122: String(scalar)
+            default: "-"
+            }
+        }.joined().split(separator: "-").filter { !$0.isEmpty }.joined(separator: "-")
         return "com.webox.wechat.\(slug.isEmpty ? "instance" : slug)"
     }
     public func updateBundleIdentifier(appPath: String, bundleIdentifier: String) throws {
