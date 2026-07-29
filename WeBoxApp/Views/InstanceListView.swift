@@ -69,7 +69,15 @@ struct InstanceListView: View {
             .padding(.horizontal)
 
             if model.instances.isEmpty {
-                ContentUnavailableView("暂无微信实例", systemImage: "message", description: Text("检测到微信后，可创建独立实例。"))
+                VStack(spacing: 10) {
+                    Image(systemName: "message")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("暂无微信实例").font(.title3)
+                    Text("检测到微信后，可创建独立实例。")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(model.instances) { instance in
                     HStack {
