@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import WeBoxCore
 
@@ -64,7 +65,12 @@ struct InstanceListView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+            LinearGradient(
+                colors: [Color(red: 0.96, green: 0.98, blue: 1.0), Color.white, Color(red: 0.95, green: 0.97, blue: 1.0)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 header
@@ -87,6 +93,8 @@ struct InstanceListView: View {
                         .padding(28)
                     }
                 }
+
+                footer
             }
         }
         .sheet(isPresented: $isShowingCreateSheet) {
@@ -111,17 +119,15 @@ struct InstanceListView: View {
 
     private var header: some View {
         HStack(spacing: 16) {
-            ZStack {
-                Circle().fill(Color.accentColor.gradient)
-                Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 23, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 52, height: 52)
+            BrandIconView()
+                .frame(width: 58, height: 58)
+                .shadow(color: Color.blue.opacity(0.22), radius: 10, y: 5)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("WeBox").font(.system(size: 26, weight: .bold))
-                Text("微信实例管理").font(.subheadline).foregroundStyle(.secondary)
+                Text("WeBox").font(.system(size: 28, weight: .bold, design: .rounded))
+                Text("微信多开 · 独立运行 · 安全隔离")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             Text("\(model.instances.count) 个实例")
@@ -138,8 +144,22 @@ struct InstanceListView: View {
             .controlSize(.large)
             .disabled(model.isCreating)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 18)
+        .padding(.horizontal, 30)
+        .padding(.vertical, 17)
+        .background(.ultraThinMaterial)
+    }
+
+    private var footer: some View {
+        HStack {
+            Label("本地管理，不读取聊天内容", systemImage: "lock.shield")
+            Spacer()
+            Text("WeBox v\(AppVersion.current) · macOS 13+")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 30)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -149,10 +169,8 @@ private struct EmptyInstanceView: View {
     var body: some View {
         VStack(spacing: 20) {
             ZStack {
-                Circle().fill(Color.accentColor.opacity(0.12))
-                Image(systemName: "message.badge.fill")
-                    .font(.system(size: 54, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
+                Circle().fill(LinearGradient(colors: [.blue.opacity(0.18), .purple.opacity(0.13)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                BrandIconView().padding(12)
             }
             .frame(width: 132, height: 132)
             Text("还没有微信实例").font(.title2.bold())
@@ -181,11 +199,9 @@ private struct InstanceCard: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(statusColor.opacity(0.14))
-                    Image(systemName: instance.status == .running ? "message.fill" : "message")
-                        .font(.system(size: 31, weight: .semibold))
-                        .foregroundStyle(statusColor)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(LinearGradient(colors: [.blue.opacity(0.16), .purple.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    BrandIconView().padding(8)
                 }
                 .frame(width: 76, height: 76)
 
@@ -211,8 +227,9 @@ private struct InstanceCard: View {
             }
         }
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.quaternary))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(LinearGradient(colors: [.white.opacity(0.9), .blue.opacity(0.16)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .shadow(color: Color.blue.opacity(0.08), radius: 14, y: 7)
     }
 
     private var statusColor: Color {
@@ -297,5 +314,87 @@ private struct CreateInstanceSheet: View {
         }
         .padding(28)
         .frame(width: 460)
+    }
+}
+
+private struct BrandIconView: View {
+    var body: some View {
+        if let url = Bundle.main.url(forResource: "WeBoxIcon", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+        } else {
+            Image(systemName: "message.badge.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.blue)
+        }
+    }
+}
+
+struct StatusBarView: View {
+    @ObservedObject var model: InstanceListViewModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                BrandIconView().frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("WeBox").font(.headline)
+                    Text(summary).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("v\(AppVersion.current)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            if model.instances.isEmpty {
+                Label("暂无微信实例", systemImage: "message")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.instances.prefix(5)) { instance in
+                    HStack(spacing: 9) {
+                        Circle().fill(statusColor(instance.status)).frame(width: 8, height: 8)
+                        Text(instance.name).lineLimit(1)
+                        Spacer()
+                        Text(instance.status.displayName).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Divider()
+
+            Button { openWindow(id: "main") } label: {
+                Label("打开 WeBox", systemImage: "macwindow")
+            }
+            Button { model.refresh() } label: {
+                Label("刷新实例状态", systemImage: "arrow.clockwise")
+            }
+            Button("退出 WeBox", role: .destructive) { NSApplication.shared.terminate(nil) }
+        }
+        .padding(16)
+        .frame(width: 270)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var summary: String {
+        let running = model.instances.filter { $0.status == .running }.count
+        return running == 0 ? "\(model.instances.count) 个账号待命" : "\(running) 个账号正在运行"
+    }
+
+    private func statusColor(_ status: InstanceStatus) -> Color {
+        switch status { case .running: .green; case .needUpdate, .error: .red; case .stopped: .orange; default: .blue }
+    }
+}
+
+enum AppVersion {
+    static var current: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
     }
 }

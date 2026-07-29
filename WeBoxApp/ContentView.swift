@@ -2,7 +2,7 @@ import SwiftUI
 import WeBoxCore
 
 struct ContentView: View {
-    @StateObject private var model = InstanceListViewModel()
+    @ObservedObject var model: InstanceListViewModel
 
     var body: some View {
         InstanceListView(model: model)
