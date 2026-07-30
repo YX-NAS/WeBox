@@ -5,6 +5,9 @@ public struct InstanceManager: Sendable {
     private let cloneEngine = CloneEngine(); private let bundleManager = BundleManager(); private let signatureManager = SignatureManager()
     public init(repository: InstanceRepository) { self.repository = repository }
     @discardableResult public func createInstance(name: String, sourceInfo: WeChatInfo, installDirectory: String = "/Applications") throws -> WeChatInstance {
+        guard sourceInfo.application.cloneCompatibility.canCreate else {
+            throw WeBoxError.applicationNotSupported(sourceInfo.application.cloneCompatibility.displayName)
+        }
         let (resolvedName, target) = try availableTarget(for: name, application: sourceInfo.application, installDirectory: installDirectory)
         let identifier = bundleManager.bundleIdentifier(for: resolvedName, application: sourceInfo.application)
         try cloneEngine.clone(sourceApp: sourceInfo.path, targetApp: target)

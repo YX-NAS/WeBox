@@ -1,5 +1,26 @@
 import Foundation
 
+public enum CloneCompatibility: Equatable, Sendable {
+    case supported
+    case experimental
+    case restricted(String)
+
+    public var canCreate: Bool {
+        switch self {
+        case .supported, .experimental: true
+        case .restricted: false
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .supported: "支持独立副本"
+        case .experimental: "实验性支持"
+        case .restricted(let reason): reason
+        }
+    }
+}
+
 public enum ManagedApplication: String, Codable, CaseIterable, Sendable {
     case wechat
     case chatgpt
@@ -35,5 +56,18 @@ public enum ManagedApplication: String, Codable, CaseIterable, Sendable {
 
     public var clonePrefix: String {
         self == .wechat ? "WeBox" : "WeBox_\(displayName)"
+    }
+
+    public var cloneCompatibility: CloneCompatibility {
+        switch self {
+        case .wechat:
+            .supported
+        case .chatgpt:
+            .restricted("受 OpenAI 签名、Keychain 与应用群组保护，不能创建独立副本")
+        case .whatsapp:
+            .restricted("受 App Sandbox、iCloud 与应用群组保护，不能创建独立副本")
+        case .discord:
+            .experimental
+        }
     }
 }

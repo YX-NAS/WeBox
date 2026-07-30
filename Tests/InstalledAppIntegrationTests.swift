@@ -19,6 +19,10 @@ let detector = ApplicationDetector()
 var testedApplications: [ManagedApplication] = []
 
 for application in ManagedApplication.allCases {
+    guard application.cloneCompatibility.canCreate else {
+        print("SKIP: \(application.displayName) \(application.cloneCompatibility.displayName)")
+        continue
+    }
     guard let source = try? detector.detect(application: application) else {
         print("SKIP: \(application.displayName) 未安装")
         continue

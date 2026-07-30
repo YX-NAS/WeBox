@@ -40,7 +40,8 @@ final class InstanceListViewModel: ObservableObject {
                 let appExists = FileManager.default.fileExists(atPath: instance.appPath)
                 let isRunning = appExists && processManager.pid(instance: instance) != nil
                 let nextStatus: InstanceStatus
-                if !appExists { nextStatus = .error }
+                if !instance.application.cloneCompatibility.canCreate { nextStatus = .error }
+                else if !appExists { nextStatus = .error }
                 else if isRunning { nextStatus = .running }
                 else if let source = sources[instance.application], instance.version != source.version { nextStatus = .needUpdate }
                 else { nextStatus = instance.status == .running ? .stopped : instance.status }
@@ -228,7 +229,7 @@ struct InstanceListView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("WeBox").font(.system(size: 28, weight: .bold, design: .rounded))
-                Text("多应用实例 · 独立运行 · 本地管理")
+                Text("多应用实例 · 独立运行 · 受保护应用不复制")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -363,7 +364,7 @@ private struct InstanceCard: View {
             HStack(spacing: 6) {
                 CompactActionButton(title: "启动", icon: "play.fill", tint: .green, action: startAction)
                 CompactActionButton(title: "关闭", icon: "stop.fill", tint: .orange, action: stopAction)
-                if healthReport?.canRepair == true || (healthReport == nil && instance.status == .error) {
+                if instance.application.cloneCompatibility.canCreate && (healthReport?.canRepair == true || (healthReport == nil && instance.status == .error)) {
                     CompactActionButton(title: "修复", icon: "wrench.and.screwdriver", tint: .blue, action: repairAction)
                 }
                 CompactActionButton(title: "删除", icon: "trash", tint: .red, action: deleteAction)
@@ -438,10 +439,12 @@ private struct CreateInstanceSheet: View {
                 Text("应用").font(.headline)
                 Picker("应用", selection: $selectedApplication) {
                     ForEach(ManagedApplication.allCases, id: \.self) { application in
-                        if installedApplications.contains(application) {
-                            Label(application.displayName, systemImage: application.symbolName).tag(application)
-                        } else {
+                        if !installedApplications.contains(application) {
                             Text("\(application.displayName)（未安装）").tag(application).disabled(true)
+                        } else if !application.cloneCompatibility.canCreate {
+                            Text("\(application.displayName)（受保护，不能创建副本）").tag(application).disabled(true)
+                        } else {
+                            Label(application.displayName, systemImage: application.symbolName).tag(application)
                         }
                     }
                 }
@@ -462,13 +465,13 @@ private struct CreateInstanceSheet: View {
                     Label("创建实例", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(installedApplications.isEmpty || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
+                .disabled(!selectedApplication.cloneCompatibility.canCreate || installedApplications.filter(\.cloneCompatibility.canCreate).isEmpty || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
             }
         }
         .padding(28)
         .frame(width: 460)
         .onAppear {
-            if let first = installedApplications.first { selectedApplication = first }
+            if let first = installedApplications.first(where: { $0.cloneCompatibility.canCreate }) { selectedApplication = first }
         }
     }
 }

@@ -21,6 +21,7 @@ do {
     expect(bundleManager.bundleIdentifier(for: "工作") != bundleManager.bundleIdentifier(for: "生活"), "中文名称必须生成不同 Bundle Identifier")
     expect(bundleManager.bundleIdentifier(for: "工作微信 2") == "com.webox.wechat.u5de5u4f5cu5faeu4fe1-2", "中文 Bundle Identifier 规则错误")
     expect(bundleManager.bundleIdentifier(for: "work", application: .chatgpt) == "com.webox.chatgpt.work", "ChatGPT Bundle Identifier 规则错误")
+    expect(!ManagedApplication.chatgpt.cloneCompatibility.canCreate, "ChatGPT 必须标记为受保护应用")
 
     let root = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
@@ -47,6 +48,13 @@ do {
     let legacyRepository = try InstanceRepository(database: Database(path: legacyPath))
     let legacyInstances = try legacyRepository.all()
     expect(legacyInstances.first?.application == .wechat, "旧数据库记录必须迁移为微信类型")
+
+    do {
+        _ = try InstanceManager(repository: repository).createInstance(name: "Blocked", sourceInfo: WeChatInfo(application: .chatgpt, path: "/tmp/ChatGPT.app", bundleId: "com.openai.codex", version: "1.0"), installDirectory: root.path)
+        expect(false, "受保护的 ChatGPT 不应允许创建副本")
+    } catch WeBoxError.applicationNotSupported {
+        // Expected: this guard prevents broken re-signing before any file is copied.
+    }
 
     let source = root.appendingPathComponent("Source.app")
     let target = root.appendingPathComponent("Target.app")

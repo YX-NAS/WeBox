@@ -5,6 +5,7 @@ public enum InstanceIssue: String, Codable, CaseIterable, Sendable {
     case bundleIdentifierMismatch
     case invalidSignature
     case sourceVersionChanged
+    case restrictedApplication
 
     public var displayName: String {
         switch self {
@@ -12,6 +13,7 @@ public enum InstanceIssue: String, Codable, CaseIterable, Sendable {
         case .bundleIdentifierMismatch: "Bundle Identifier 不匹配"
         case .invalidSignature: "代码签名无效"
         case .sourceVersionChanged: "源应用已升级"
+        case .restrictedApplication: "该应用不支持独立副本"
         }
     }
 }
@@ -36,6 +38,9 @@ public struct InstanceHealthChecker: Sendable {
     public init() {}
 
     public func check(instance: WeChatInstance, currentWeChat: WeChatInfo? = nil) -> InstanceHealthReport {
+        guard instance.application.cloneCompatibility.canCreate else {
+            return InstanceHealthReport(instanceID: instance.id, status: .error, issues: [.restrictedApplication])
+        }
         let appURL = URL(fileURLWithPath: instance.appPath)
         guard FileManager.default.fileExists(atPath: appURL.path) else {
             return InstanceHealthReport(instanceID: instance.id, status: .error, issues: [.missingApplication])
