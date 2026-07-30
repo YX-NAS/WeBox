@@ -5,14 +5,14 @@ English | [中文](README.md)
 > A local macOS app-instance manager for isolated app copies and lifecycle control.
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.2.0-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.2.1-6C5CE7)
 
 WeBox detects supported apps in `/Applications`, creates compatible app copies with unique bundle identifiers, re-signs them, and stores instance status locally. It doesn't read messages, credentials, contacts, or network traffic.
 
 ## Features
 
 - Chinese and English in-app interface; switch languages from the More menu.
-- Create and manage compatible WeChat and experimental WhatsApp copies.
+- Create and manage compatible WeChat copies plus experimental QQ and WhatsApp copies.
 - Search and filter instances by app and status; start, stop, repair, or move copies to Trash.
 - Local SQLite persistence, health checks, diagnostics, and a menu bar overview.
 - ChatGPT is intentionally not listed as creatable because its signed Keychain and app-group identity can't be safely preserved after bundle-ID changes.
@@ -21,7 +21,7 @@ WeBox detects supported apps in `/Applications`, creates compatible app copies w
 
 - macOS 13+ on Apple Silicon; source applications must be in `/Applications`.
 - Copies use ad-hoc signing and aren't Developer ID notarized.
-- WhatsApp and Discord remain compatibility-dependent: creation is tested where installed, while independent sign-in and long-running behavior must be verified with a real account.
+- QQ, WhatsApp, and Discord remain compatibility-dependent: creation is tested where installed, while independent sign-in and long-running behavior must be verified with a real account.
 
 ## Build and test
 
@@ -33,4 +33,4 @@ WeBox detects supported apps in `/Applications`, creates compatible app copies w
 
 ## License and third-party notice
 
-WeBox is licensed under [MIT](LICENSE), covering only WeBox source code. It grants no trademark, client, or service-terms rights for WeChat, WhatsApp, Discord, or any other third party. WeBox isn't affiliated with or endorsed by these products.
+WeBox is licensed under [MIT](LICENSE), covering only WeBox source code. It grants no trademark, client, or service-terms rights for WeChat, QQ, WhatsApp, Discord, or any other third party. WeBox isn't affiliated with or endorsed by these products.

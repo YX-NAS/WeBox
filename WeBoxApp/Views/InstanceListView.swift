@@ -707,6 +707,7 @@ private extension ManagedApplication {
     var tint: Color {
         switch self {
         case .wechat: .green
+        case .qq: Color(red: 0.18, green: 0.55, blue: 0.95)
         case .chatgpt: .teal
         case .whatsapp: Color(red: 0.13, green: 0.70, blue: 0.37)
         case .discord: Color(red: 0.35, green: 0.36, blue: 0.92)
@@ -716,6 +717,7 @@ private extension ManagedApplication {
     var secondaryTint: Color {
         switch self {
         case .wechat: .mint
+        case .qq: .cyan
         case .chatgpt: .cyan
         case .whatsapp: .mint
         case .discord: .purple

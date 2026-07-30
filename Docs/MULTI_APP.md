@@ -1,6 +1,6 @@
 # 多应用实例支持
 
-WeBox v1.1 支持检测微信、WhatsApp、Discord。创建独立副本仅对兼容应用开放。
+WeBox 支持检测微信、QQ、WhatsApp、Discord。创建独立副本仅对兼容应用开放。
 
 ## 工作方式
 

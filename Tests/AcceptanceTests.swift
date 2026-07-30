@@ -21,6 +21,7 @@ do {
     expect(bundleManager.bundleIdentifier(for: "工作") != bundleManager.bundleIdentifier(for: "生活"), "中文名称必须生成不同 Bundle Identifier")
     expect(bundleManager.bundleIdentifier(for: "工作微信 2") == "com.webox.wechat.u5de5u4f5cu5faeu4fe1-2", "中文 Bundle Identifier 规则错误")
     expect(bundleManager.bundleIdentifier(for: "work", application: .chatgpt) == "com.webox.chatgpt.work", "ChatGPT Bundle Identifier 规则错误")
+    expect(bundleManager.bundleIdentifier(for: "work", application: .qq) == "com.webox.qq.work", "QQ Bundle Identifier 规则错误")
     expect(!ManagedApplication.chatgpt.cloneCompatibility.canCreate, "ChatGPT 必须标记为受保护应用")
     expect(!ManagedApplication.catalogCases.contains(.chatgpt), "ChatGPT 不应显示在应用目录")
     expect(ManagedApplication.whatsapp.cloneCompatibility.canCreate, "WhatsApp 应保留实验性创建能力")
