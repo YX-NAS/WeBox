@@ -5,13 +5,13 @@ public struct InstanceManager: Sendable {
     private let cloneEngine = CloneEngine(); private let bundleManager = BundleManager(); private let signatureManager = SignatureManager()
     public init(repository: InstanceRepository) { self.repository = repository }
     @discardableResult public func createInstance(name: String, sourceInfo: WeChatInfo, installDirectory: String = "/Applications") throws -> WeChatInstance {
-        let (resolvedName, target) = try availableTarget(for: name, installDirectory: installDirectory)
-        let identifier = bundleManager.bundleIdentifier(for: resolvedName)
+        let (resolvedName, target) = try availableTarget(for: name, application: sourceInfo.application, installDirectory: installDirectory)
+        let identifier = bundleManager.bundleIdentifier(for: resolvedName, application: sourceInfo.application)
         try cloneEngine.clone(sourceApp: sourceInfo.path, targetApp: target)
         do {
             try bundleManager.updateBundleIdentifier(appPath: target, bundleIdentifier: identifier)
             try signatureManager.sign(appPath: target)
-            let instance = WeChatInstance(name: resolvedName, bundleIdentifier: identifier, appPath: target, version: sourceInfo.version, status: .ready)
+            let instance = WeChatInstance(application: sourceInfo.application, name: resolvedName, bundleIdentifier: identifier, appPath: target, version: sourceInfo.version, status: .ready)
             try repository.save(instance)
             return instance
         } catch {
@@ -43,7 +43,7 @@ public struct InstanceManager: Sendable {
 
     public func repairLegacyBundleIdentifiers() throws {
         for instance in try repository.all() {
-            let expectedIdentifier = bundleManager.bundleIdentifier(for: instance.name)
+            let expectedIdentifier = bundleManager.bundleIdentifier(for: instance.name, application: instance.application)
             guard instance.bundleIdentifier != expectedIdentifier else { continue }
 
             var repaired = instance
@@ -73,14 +73,14 @@ public struct InstanceManager: Sendable {
         }
     }
 
-    private func availableTarget(for name: String, installDirectory: String) throws -> (String, String) {
+    private func availableTarget(for name: String, application: ManagedApplication, installDirectory: String) throws -> (String, String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let baseName = trimmedName.isEmpty ? "微信实例" : trimmedName.replacingOccurrences(of: "/", with: "-")
-        let existingNames = Set(try repository.all().map(\.name))
+        let baseName = trimmedName.isEmpty ? "\(application.displayName)实例" : trimmedName.replacingOccurrences(of: "/", with: "-")
+        let existingNames = Set(try repository.all().filter { $0.application == application }.map(\.name))
         var number = 1
         while true {
             let candidateName = number == 1 ? baseName : "\(baseName) \(number)"
-            let target = URL(fileURLWithPath: installDirectory).appendingPathComponent("WeBox_\(candidateName).app").path
+            let target = URL(fileURLWithPath: installDirectory).appendingPathComponent("\(application.clonePrefix)_\(candidateName).app").path
             if !FileManager.default.fileExists(atPath: target) && !existingNames.contains(candidateName) {
                 return (candidateName, target)
             }

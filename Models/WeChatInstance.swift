@@ -10,6 +10,7 @@ public enum InstanceStatus: String, Codable, CaseIterable, Sendable {
 
 public struct WeChatInstance: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
+    public var application: ManagedApplication
     public var name: String
     public var bundleIdentifier: String
     public var appPath: String
@@ -17,7 +18,7 @@ public struct WeChatInstance: Identifiable, Codable, Hashable, Sendable {
     public var status: InstanceStatus
     public let createdAt: Date
 
-    public init(id: UUID = UUID(), name: String, bundleIdentifier: String = "", appPath: String = "", version: String = "", status: InstanceStatus = .created, createdAt: Date = Date()) {
-        self.id = id; self.name = name; self.bundleIdentifier = bundleIdentifier; self.appPath = appPath; self.version = version; self.status = status; self.createdAt = createdAt
+    public init(id: UUID = UUID(), application: ManagedApplication = .wechat, name: String, bundleIdentifier: String = "", appPath: String = "", version: String = "", status: InstanceStatus = .created, createdAt: Date = Date()) {
+        self.id = id; self.application = application; self.name = name; self.bundleIdentifier = bundleIdentifier; self.appPath = appPath; self.version = version; self.status = status; self.createdAt = createdAt
     }
 }

@@ -1,32 +1,32 @@
 # WeBox for macOS
 
-> 微信多实例管理工具：多账号、独立运行、安全隔离。
+> 本机多应用实例管理工具：独立运行、本地管理、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.1-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.1.0-6C5CE7)
 
-WeBox 通过创建原版微信应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改微信协议、不读取消息，也不自动化操作账号。
+WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改客户端协议、不读取消息，也不自动化操作账号。
 
 ## 功能
 
-- 自动检测 `/Applications/WeChat.app` 及版本。
-- 创建多个独立微信副本；同名实例自动编号。
+- 自动检测 `/Applications` 中的微信、ChatGPT、WhatsApp 与 Discord 及版本。
+- 创建多个独立应用副本；同一应用内同名实例自动编号。
 - 为每个副本设置独立 Bundle Identifier 并进行 ad-hoc 签名。
 - 在卡片界面中启动、关闭和移入废纸篓删除实例。
 - SQLite 本地保存实例列表，重启应用后仍可恢复。
 - 状态栏入口显示运行账号数和每个账号的实时状态。
-- 检测原版微信升级，标记需要更新的副本。
-- 一键检查副本路径、Bundle Identifier、签名及原版微信版本；未运行副本可修复签名。
+- 检测源应用升级，标记需要更新的副本。
+- 一键检查副本路径、Bundle Identifier、签名及源应用版本；未运行副本可修复签名。
 - 搜索、状态筛选、批量启动/关闭，以及不含账号内容的本地诊断信息。
 
 ## 使用方式
 
-1. 将原版微信安装在 `/Applications/WeChat.app`。
-2. 打开 WeBox，点击“创建实例”。
-3. 输入名称，例如“工作微信”或“生活微信”。
+1. 将受支持应用安装在 `/Applications`。
+2. 打开 WeBox，点击“创建实例”并选择应用。
+3. 输入名称，例如“工作”或“生活”。
 4. 在实例卡片或状态栏菜单中管理实例。
 
-删除会关闭对应实例、将其副本移入废纸篓并清除记录。不会读取或迁移任何微信账号数据。
+删除会关闭对应实例、将其副本移入废纸篓并清除记录。不会读取或迁移任何应用账号数据。
 
 ## 隐私与安全边界
 
@@ -37,7 +37,7 @@ WeBox 通过创建原版微信应用副本，为每个副本生成独立的 Bund
 
 ## 第三方软件与商标声明
 
-MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信的商标、客户端或服务条款授权。公开前仍建议单独审查项目名称、图标和功能与相关条款的关系。WeBox 与微信及其关联方不存在隶属、合作或授权关系。
+MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、OpenAI、WhatsApp、Discord 或其他第三方的商标、客户端或服务条款授权。公开前仍建议单独审查项目名称、图标和功能与相关条款的关系。WeBox 与这些产品及其关联方不存在隶属、合作或授权关系。
 
 ## 开发与打包
 
@@ -48,7 +48,7 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信的商
 ./Scripts/release.sh
 ```
 
-构建产物位于 `Release/WeBox-v1.0.1-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
+构建产物位于 `Release/WeBox-v1.1.0-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
 
 ## 项目结构
 

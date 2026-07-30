@@ -11,7 +11,7 @@ public enum InstanceIssue: String, Codable, CaseIterable, Sendable {
         case .missingApplication: "应用副本不存在"
         case .bundleIdentifierMismatch: "Bundle Identifier 不匹配"
         case .invalidSignature: "代码签名无效"
-        case .sourceVersionChanged: "原版微信已升级"
+        case .sourceVersionChanged: "源应用已升级"
         }
     }
 }

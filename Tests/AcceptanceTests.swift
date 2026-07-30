@@ -20,6 +20,7 @@ do {
     let bundleManager = BundleManager()
     expect(bundleManager.bundleIdentifier(for: "工作") != bundleManager.bundleIdentifier(for: "生活"), "中文名称必须生成不同 Bundle Identifier")
     expect(bundleManager.bundleIdentifier(for: "工作微信 2") == "com.webox.wechat.u5de5u4f5cu5faeu4fe1-2", "中文 Bundle Identifier 规则错误")
+    expect(bundleManager.bundleIdentifier(for: "work", application: .chatgpt) == "com.webox.chatgpt.work", "ChatGPT Bundle Identifier 规则错误")
 
     let root = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
@@ -34,6 +35,18 @@ do {
     try repository.save(instance)
     let updatedInstances = try repository.all()
     expect(updatedInstances.first?.status == .stopped, "SQLite 更新实例失败")
+    let chatGPTInstance = WeChatInstance(application: .chatgpt, name: "测试", bundleIdentifier: "com.webox.chatgpt.test", appPath: root.appendingPathComponent("ChatGPT.app").path, version: "1.0", status: .ready)
+    try repository.save(chatGPTInstance)
+    let multiAppInstances = try repository.all()
+    expect(multiAppInstances.contains(where: { $0.id == chatGPTInstance.id && $0.application == .chatgpt }), "SQLite 必须保存应用类型")
+
+    let legacyPath = root.appendingPathComponent("legacy.sqlite").path
+    let legacyID = UUID().uuidString
+    let legacySQL = "CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, bundle_id TEXT NOT NULL, app_path TEXT NOT NULL, version TEXT NOT NULL, status TEXT NOT NULL, created_at REAL NOT NULL); INSERT INTO instances VALUES ('\(legacyID)', '旧微信', 'com.webox.wechat.legacy', '/tmp/Legacy.app', '1.0', 'ready', 0);"
+    _ = try CommandRunner().run("/usr/bin/sqlite3", arguments: [legacyPath, legacySQL])
+    let legacyRepository = try InstanceRepository(database: Database(path: legacyPath))
+    let legacyInstances = try legacyRepository.all()
+    expect(legacyInstances.first?.application == .wechat, "旧数据库记录必须迁移为微信类型")
 
     let source = root.appendingPathComponent("Source.app")
     let target = root.appendingPathComponent("Target.app")
@@ -60,6 +73,7 @@ do {
     expect(mismatchReport.issues.contains(.invalidSignature), "无效签名必须被检测")
 
     try repository.delete(id: instance.id)
+    try repository.delete(id: chatGPTInstance.id)
     let finalInstances = try repository.all()
     expect(finalInstances.isEmpty, "SQLite 删除实例失败")
 } catch {

@@ -1,10 +1,11 @@
 import Foundation
 
 public enum WeBoxError: LocalizedError {
-    case weChatNotFound, invalidAppBundle(String), commandFailed(String), instanceAlreadyExists(String), databaseUnavailable, processNotRunning, instanceIsRunning(String)
+    case weChatNotFound, applicationNotFound(String), invalidAppBundle(String), commandFailed(String), instanceAlreadyExists(String), databaseUnavailable, processNotRunning, instanceIsRunning(String)
     public var errorDescription: String? {
         switch self {
         case .weChatNotFound: "未在 /Applications 找到 WeChat.app。"
+        case .applicationNotFound(let name): "未在 /Applications 找到 \(name)。"
         case .invalidAppBundle(let path): "无效的应用包：\(path)"
         case .commandFailed(let message): message
         case .instanceAlreadyExists(let path): "目标实例已存在：\(path)"

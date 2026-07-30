@@ -10,7 +10,7 @@ final class InstanceListViewModel: ObservableObject {
     @Published var isCreating = false
 
     private let repository: InstanceRepository?
-    private let detector = WeChatDetector()
+    private let detector = ApplicationDetector()
     private let processManager = ProcessManager()
 
     init() {
@@ -26,17 +26,23 @@ final class InstanceListViewModel: ObservableObject {
         refresh()
     }
 
+    var availableApplications: [ManagedApplication] {
+        ManagedApplication.allCases.filter { (try? detector.detect(application: $0)) != nil }
+    }
+
     func refresh() {
         do {
             guard let repository else { instances = []; return }
-            let currentWeChat = try? detector.detect()
+            let sources = Dictionary(uniqueKeysWithValues: ManagedApplication.allCases.compactMap { app in
+                (try? detector.detect(application: app)).map { (app, $0) }
+            })
             for instance in try repository.all() {
                 let appExists = FileManager.default.fileExists(atPath: instance.appPath)
                 let isRunning = appExists && processManager.pid(instance: instance) != nil
                 let nextStatus: InstanceStatus
                 if !appExists { nextStatus = .error }
                 else if isRunning { nextStatus = .running }
-                else if let currentWeChat, instance.version != currentWeChat.version { nextStatus = .needUpdate }
+                else if let source = sources[instance.application], instance.version != source.version { nextStatus = .needUpdate }
                 else { nextStatus = instance.status == .running ? .stopped : instance.status }
                 if nextStatus != instance.status { try repository.updateStatus(id: instance.id, status: nextStatus) }
             }
@@ -45,14 +51,14 @@ final class InstanceListViewModel: ObservableObject {
         catch { errorMessage = error.localizedDescription }
     }
 
-    func createInstance(named name: String) {
+    func createInstance(application: ManagedApplication, named name: String) {
         guard !isCreating else { return }
         guard let repository else { errorMessage = WeBoxError.databaseUnavailable.localizedDescription; return }
         isCreating = true
         let detector = detector
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result {
-                let info = try detector.detect()
+                let info = try detector.detect(application: application)
                 return try InstanceManager(repository: repository).createInstance(name: name, sourceInfo: info)
             }
             DispatchQueue.main.async {
@@ -94,8 +100,10 @@ final class InstanceListViewModel: ObservableObject {
         guard let repository else { errorMessage = WeBoxError.databaseUnavailable.localizedDescription; return }
         let detector = detector
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let currentWeChat = try? detector.detect()
-            let reports = (try? repository.all().map { InstanceHealthChecker().check(instance: $0, currentWeChat: currentWeChat) }) ?? []
+            let sources = Dictionary(uniqueKeysWithValues: ManagedApplication.allCases.compactMap { app in
+                (try? detector.detect(application: app)).map { (app, $0) }
+            })
+            let reports = (try? repository.all().map { InstanceHealthChecker().check(instance: $0, currentWeChat: sources[$0.application]) }) ?? []
             for report in reports { try? repository.updateStatus(id: report.instanceID, status: report.status) }
             DispatchQueue.main.async {
                 self?.healthReports = Dictionary(uniqueKeysWithValues: reports.map { ($0.instanceID, $0) })
@@ -123,7 +131,7 @@ final class InstanceListViewModel: ObservableObject {
         let rows = instances.map { instance in
             let report = healthReports[instance.id]
             let healthSummary = report?.summary ?? "未执行完整检查"
-            return ["名称：\(instance.name)", "状态：\(instance.status.displayName)", "版本：\(instance.version)", "Bundle ID：\(instance.bundleIdentifier)", "路径：\(instance.appPath)", "检查：\(healthSummary)"].joined(separator: "\n")
+            return ["应用：\(instance.application.displayName)", "名称：\(instance.name)", "状态：\(instance.status.displayName)", "版本：\(instance.version)", "Bundle ID：\(instance.bundleIdentifier)", "路径：\(instance.appPath)", "检查：\(healthSummary)"].joined(separator: "\n")
         }
         return (header + [""] + rows).joined(separator: "\n\n")
     }
@@ -140,6 +148,7 @@ struct InstanceListView: View {
     @State private var searchText = ""
     @State private var selectedStatus: InstanceStatus?
     @State private var isShowingDiagnostics = false
+    @State private var selectedApplication: ManagedApplication?
 
     var body: some View {
         ZStack {
@@ -162,6 +171,7 @@ struct InstanceListView: View {
                             instances: model.instances,
                             searchText: $searchText,
                             selectedStatus: $selectedStatus,
+                            selectedApplication: $selectedApplication,
                             checkAction: model.checkAll
                         )
                             .padding(.bottom, 12)
@@ -185,15 +195,15 @@ struct InstanceListView: View {
             }
         }
         .sheet(isPresented: $isShowingCreateSheet) {
-            CreateInstanceSheet(isCreating: model.isCreating) { name in
+            CreateInstanceSheet(installedApplications: model.availableApplications, isCreating: model.isCreating) { application, name in
                 isShowingCreateSheet = false
-                model.createInstance(named: name)
+                model.createInstance(application: application, named: name)
             }
         }
         .alert("操作失败", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("好", role: .cancel) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
-        .confirmationDialog("删除微信实例？", isPresented: Binding(get: { instancePendingDeletion != nil }, set: { if !$0 { instancePendingDeletion = nil } })) {
+        .confirmationDialog("删除应用实例？", isPresented: Binding(get: { instancePendingDeletion != nil }, set: { if !$0 { instancePendingDeletion = nil } })) {
             Button("移入废纸篓并删除记录", role: .destructive) {
                 if let instancePendingDeletion { model.delete(instancePendingDeletion) }
                 instancePendingDeletion = nil
@@ -218,7 +228,7 @@ struct InstanceListView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("WeBox").font(.system(size: 28, weight: .bold, design: .rounded))
-                Text("微信多开 · 独立运行 · 安全隔离")
+                Text("多应用实例 · 独立运行 · 本地管理")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -255,9 +265,10 @@ struct InstanceListView: View {
 
     private var visibleInstances: [WeChatInstance] {
         model.instances.filter { instance in
-            let matchesText = searchText.isEmpty || instance.name.localizedCaseInsensitiveContains(searchText) || instance.bundleIdentifier.localizedCaseInsensitiveContains(searchText)
+            let matchesText = searchText.isEmpty || instance.name.localizedCaseInsensitiveContains(searchText) || instance.application.displayName.localizedCaseInsensitiveContains(searchText) || instance.bundleIdentifier.localizedCaseInsensitiveContains(searchText)
             let matchesStatus = selectedStatus == nil || instance.status == selectedStatus
-            return matchesText && matchesStatus
+            let matchesApplication = selectedApplication == nil || instance.application == selectedApplication
+            return matchesText && matchesStatus && matchesApplication
         }
     }
 
@@ -293,8 +304,8 @@ private struct EmptyInstanceView: View {
                 BrandIconView().padding(12)
             }
             .frame(width: 132, height: 132)
-            Text("还没有微信实例").font(.title2.bold())
-            Text("创建独立副本后，可分别登录和管理多个微信账号。")
+            Text("还没有应用实例").font(.title2.bold())
+            Text("创建独立副本后，可分别管理已安装的应用。")
                 .foregroundStyle(.secondary)
             Button(action: createAction) {
                 Label("创建第一个实例", systemImage: "plus.circle.fill")
@@ -328,11 +339,13 @@ private struct InstanceCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
+                    Label(instance.application.displayName, systemImage: instance.application.symbolName)
+                        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
                     Text(instance.name).font(.headline).lineLimit(1)
                     Spacer(minLength: 4)
                     StatusBadge(status: instance.status)
                 }
-                Text("微信 \(instance.version)")
+                Text("\(instance.application.displayName) \(instance.version)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(instance.bundleIdentifier)
@@ -402,10 +415,12 @@ private struct CompactActionButton: View {
 }
 
 private struct CreateInstanceSheet: View {
+    let installedApplications: [ManagedApplication]
     let isCreating: Bool
-    let createAction: (String) -> Void
+    let createAction: (ManagedApplication, String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var selectedApplication: ManagedApplication = .wechat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -414,16 +429,27 @@ private struct CreateInstanceSheet: View {
                     .font(.system(size: 38))
                     .foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("创建微信实例").font(.title2.bold())
-                    Text("每个实例都是独立的微信应用副本。")
+                    Text("创建应用实例").font(.title2.bold())
+                    Text("每个实例都是独立的本机应用副本。")
                         .foregroundStyle(.secondary)
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
+                Text("应用").font(.headline)
+                Picker("应用", selection: $selectedApplication) {
+                    ForEach(ManagedApplication.allCases, id: \.self) { application in
+                        if installedApplications.contains(application) {
+                            Label(application.displayName, systemImage: application.symbolName).tag(application)
+                        } else {
+                            Text("\(application.displayName)（未安装）").tag(application).disabled(true)
+                        }
+                    }
+                }
+                .labelsHidden()
                 Text("实例名称").font(.headline)
-                TextField("例如：工作微信", text: $name)
+                TextField("例如：工作", text: $name)
                     .textFieldStyle(.roundedBorder)
-                Text("同名时会自动添加编号，例如“工作微信 2”。")
+                Text("同一应用内同名时会自动添加编号，例如“工作 2”。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -431,16 +457,19 @@ private struct CreateInstanceSheet: View {
                 Spacer()
                 Button("取消") { dismiss() }
                 Button {
-                    createAction(name)
+                    createAction(selectedApplication, name)
                 } label: {
                     Label("创建实例", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
+                .disabled(installedApplications.isEmpty || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
             }
         }
         .padding(28)
         .frame(width: 460)
+        .onAppear {
+            if let first = installedApplications.first { selectedApplication = first }
+        }
     }
 }
 
@@ -467,6 +496,7 @@ private struct SummaryStrip: View {
     let instances: [WeChatInstance]
     @Binding var searchText: String
     @Binding var selectedStatus: InstanceStatus?
+    @Binding var selectedApplication: ManagedApplication?
     let checkAction: () -> Void
 
     var body: some View {
@@ -489,6 +519,14 @@ private struct SummaryStrip: View {
                 }
                 .labelsHidden()
                 .frame(width: 84)
+                Picker("应用", selection: $selectedApplication) {
+                    Text("所有应用").tag(ManagedApplication?.none)
+                    ForEach(ManagedApplication.allCases, id: \.self) { application in
+                        Text(application.displayName).tag(Optional(application))
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 96)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -561,7 +599,7 @@ struct StatusBarView: View {
             Divider()
 
             if model.instances.isEmpty {
-                Label("暂无微信实例", systemImage: "message")
+                Label("暂无应用实例", systemImage: "app.badge")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.instances.prefix(5)) { instance in
@@ -613,7 +651,7 @@ enum AppVersion {
 }
 
 enum AppReleaseInfo {
-    static let date = "2026-07-29"
+    static let date = "2026-07-30"
     static let releasesURL = URL(string: "https://github.com/YX-NAS/WeBox/releases")!
 
     static func openReleasePage() {

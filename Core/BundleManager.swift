@@ -3,6 +3,9 @@ import Foundation
 public struct BundleManager: Sendable {
     public init() {}
     public func bundleIdentifier(for name: String) -> String {
+        bundleIdentifier(for: name, application: .wechat)
+    }
+    public func bundleIdentifier(for name: String, application: ManagedApplication) -> String {
         let slug = name.lowercased().unicodeScalars.map { scalar -> String in
             switch scalar.value {
             case 48...57, 97...122: String(scalar)
@@ -10,7 +13,8 @@ public struct BundleManager: Sendable {
             default: "-"
             }
         }.joined().split(separator: "-").filter { !$0.isEmpty }.joined(separator: "-")
-        return "com.webox.wechat.\(slug.isEmpty ? "instance" : slug)"
+        let appName = application.rawValue
+        return "com.webox.\(appName).\(slug.isEmpty ? "instance" : slug)"
     }
     public func updateBundleIdentifier(appPath: String, bundleIdentifier: String) throws {
         let plist = URL(fileURLWithPath: appPath).appendingPathComponent("Contents/Info.plist").path
