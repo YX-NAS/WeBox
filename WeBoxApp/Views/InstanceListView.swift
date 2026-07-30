@@ -333,8 +333,8 @@ private struct InstanceCard: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .fill(LinearGradient(colors: [.blue.opacity(0.16), .purple.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                BrandIconView()
+                    .fill(LinearGradient(colors: [instance.application.tint.opacity(0.20), instance.application.secondaryTint.opacity(0.14)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                ManagedApplicationIconView(application: instance.application)
             }
             .frame(width: 64, height: 64)
 
@@ -430,7 +430,7 @@ private struct CreateInstanceSheet: View {
                     .font(.system(size: 38))
                     .foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("创建应用实例").font(.title2.bold())
+                    Text("创建\(selectedApplication.displayName)实例").font(.title2.bold())
                     Text("每个实例都是独立的本机应用副本。")
                         .foregroundStyle(.secondary)
                 }
@@ -492,6 +492,32 @@ private struct BrandIconView: View {
                 .scaledToFit()
                 .foregroundStyle(.blue)
         }
+    }
+}
+
+private struct ManagedApplicationIconView: View {
+    let application: ManagedApplication
+    let symbolSize: CGFloat
+    let cornerRadius: CGFloat
+    let inset: CGFloat
+
+    init(application: ManagedApplication, symbolSize: CGFloat = 28, cornerRadius: CGFloat = 17, inset: CGFloat = 6) {
+        self.application = application
+        self.symbolSize = symbolSize
+        self.cornerRadius = cornerRadius
+        self.inset = inset
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(LinearGradient(colors: [application.tint, application.secondaryTint], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Image(systemName: application.symbolName)
+                .font(.system(size: symbolSize, weight: .semibold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.16), radius: 2, y: 1)
+        }
+        .padding(inset)
     }
 }
 
@@ -607,8 +633,10 @@ struct StatusBarView: View {
             } else {
                 ForEach(model.instances.prefix(5)) { instance in
                     HStack(spacing: 9) {
+                        ManagedApplicationIconView(application: instance.application, symbolSize: 11, cornerRadius: 6, inset: 2)
+                            .frame(width: 24, height: 24)
                         Circle().fill(statusColor(instance.status)).frame(width: 8, height: 8)
-                        Text(instance.name).lineLimit(1)
+                        Text("\(instance.application.displayName) · \(instance.name)").lineLimit(1)
                         Spacer()
                         Text(instance.status.displayName).font(.caption).foregroundStyle(.secondary)
                     }
@@ -659,5 +687,25 @@ enum AppReleaseInfo {
 
     static func openReleasePage() {
         NSWorkspace.shared.open(releasesURL)
+    }
+}
+
+private extension ManagedApplication {
+    var tint: Color {
+        switch self {
+        case .wechat: .green
+        case .chatgpt: .teal
+        case .whatsapp: Color(red: 0.13, green: 0.70, blue: 0.37)
+        case .discord: Color(red: 0.35, green: 0.36, blue: 0.92)
+        }
+    }
+
+    var secondaryTint: Color {
+        switch self {
+        case .wechat: .mint
+        case .chatgpt: .cyan
+        case .whatsapp: .mint
+        case .discord: .purple
+        }
     }
 }
