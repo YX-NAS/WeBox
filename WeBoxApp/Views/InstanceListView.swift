@@ -27,7 +27,7 @@ final class InstanceListViewModel: ObservableObject {
     }
 
     var availableApplications: [ManagedApplication] {
-        ManagedApplication.allCases.filter { (try? detector.detect(application: $0)) != nil }
+        ManagedApplication.catalogCases.filter { (try? detector.detect(application: $0)) != nil }
     }
 
     func refresh() {
@@ -438,7 +438,7 @@ private struct CreateInstanceSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("应用").font(.headline)
                 Picker("应用", selection: $selectedApplication) {
-                    ForEach(ManagedApplication.allCases, id: \.self) { application in
+                    ForEach(ManagedApplication.catalogCases, id: \.self) { application in
                         if !installedApplications.contains(application) {
                             Text("\(application.displayName)（未安装）").tag(application).disabled(true)
                         } else if !application.cloneCompatibility.canCreate {
@@ -550,7 +550,7 @@ private struct SummaryStrip: View {
                 .frame(width: 84)
                 Picker("应用", selection: $selectedApplication) {
                     Text("所有应用").tag(ManagedApplication?.none)
-                    ForEach(ManagedApplication.allCases, id: \.self) { application in
+                    ForEach(ManagedApplication.catalogCases, id: \.self) { application in
                         Text(application.displayName).tag(Optional(application))
                     }
                 }

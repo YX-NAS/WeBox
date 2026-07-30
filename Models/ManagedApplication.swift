@@ -27,6 +27,14 @@ public enum ManagedApplication: String, Codable, CaseIterable, Sendable {
     case whatsapp
     case discord
 
+    public static var catalogCases: [ManagedApplication] {
+        allCases.filter(\.isVisibleInCatalog)
+    }
+
+    public var isVisibleInCatalog: Bool {
+        self != .chatgpt
+    }
+
     public var displayName: String {
         switch self {
         case .wechat: "微信"
@@ -65,7 +73,7 @@ public enum ManagedApplication: String, Codable, CaseIterable, Sendable {
         case .chatgpt:
             .restricted("受 OpenAI 签名、Keychain 与应用群组保护，不能创建独立副本")
         case .whatsapp:
-            .restricted("受 App Sandbox、iCloud 与应用群组保护，不能创建独立副本")
+            .experimental
         case .discord:
             .experimental
         }

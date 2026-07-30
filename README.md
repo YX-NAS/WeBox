@@ -3,14 +3,14 @@
 > 本机多应用实例管理工具：独立运行、本地管理、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.1.2-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.1.3-6C5CE7)
 
 WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改客户端协议、不读取消息，也不自动化操作账号。
 
 ## 功能
 
-- 自动检测 `/Applications` 中的微信、ChatGPT、WhatsApp 与 Discord 及版本。
-- 仅为兼容应用创建独立副本；ChatGPT 与 WhatsApp 会因签名保护明确阻止创建，避免资料访问警告。
+- 自动检测 `/Applications` 中的微信、WhatsApp 与 Discord 及版本。
+- 支持微信与 WhatsApp 创建独立副本；Discord 为实验性支持。
 - 为每个副本设置独立 Bundle Identifier 并进行 ad-hoc 签名。
 - 在卡片界面中启动、关闭和移入废纸篓删除实例。
 - SQLite 本地保存实例列表，重启应用后仍可恢复。
@@ -37,7 +37,7 @@ WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Ide
 
 ## 第三方软件与商标声明
 
-MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、OpenAI、WhatsApp、Discord 或其他第三方的商标、客户端或服务条款授权。公开前仍建议单独审查项目名称、图标和功能与相关条款的关系。WeBox 与这些产品及其关联方不存在隶属、合作或授权关系。
+MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、WhatsApp、Discord 或其他第三方的商标、客户端或服务条款授权。公开前仍建议单独审查项目名称、图标和功能与相关条款的关系。WeBox 与这些产品及其关联方不存在隶属、合作或授权关系。
 
 ## 开发与打包
 
@@ -48,7 +48,7 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、Ope
 ./Scripts/release.sh
 ```
 
-构建产物位于 `Release/WeBox-v1.1.2-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
+构建产物位于 `Release/WeBox-v1.1.3-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
 
 ## 项目结构
 

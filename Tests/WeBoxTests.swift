@@ -12,6 +12,8 @@ final class WeBoxTests: XCTestCase {
         XCTAssertEqual(BundleManager().bundleIdentifier(for: "工作微信 2"), "com.webox.wechat.u5de5u4f5cu5faeu4fe1-2")
         XCTAssertNotEqual(BundleManager().bundleIdentifier(for: "工作"), BundleManager().bundleIdentifier(for: "生活"))
         XCTAssertEqual(BundleManager().bundleIdentifier(for: "work", application: .discord), "com.webox.discord.work")
+        XCTAssertFalse(ManagedApplication.catalogCases.contains(.chatgpt))
+        XCTAssertTrue(ManagedApplication.whatsapp.cloneCompatibility.canCreate)
     }
     func testRepositoryPersistsInstance() throws {
         let path = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).path
