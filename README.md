@@ -20,6 +20,7 @@ WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Ide
 - 检测源应用升级，标记需要更新的副本。
 - 一键检查副本路径、Bundle Identifier、签名及源应用版本；未运行副本可修复签名。
 - 搜索、状态筛选、批量启动/关闭，以及不含账号内容的本地诊断信息。
+- 已通过本机微信、QQ、WhatsApp 的临时副本创建与签名集成测试；独立登录和长期运行仍需在真实账号环境确认。
 
 ## 使用方式
 
@@ -47,6 +48,7 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、QQ�
 
 ```bash
 ./Scripts/test.sh
+./Scripts/integration-test.sh
 ./Scripts/release.sh
 ```
 
