@@ -1,9 +1,11 @@
 # WeBox for macOS
 
+[English](README.en.md) | 中文
+
 > 本机多应用实例管理工具：独立运行、本地管理、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.1.3-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.2.0-6C5CE7)
 
 WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改客户端协议、不读取消息，也不自动化操作账号。
 
@@ -48,7 +50,7 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、Wha
 ./Scripts/release.sh
 ```
 
-构建产物位于 `Release/WeBox-v1.1.3-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
+构建产物位于 `Release/WeBox-v1.2.0-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
 
 ## 项目结构
 

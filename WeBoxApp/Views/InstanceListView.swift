@@ -144,12 +144,15 @@ final class InstanceListViewModel: ObservableObject {
 
 struct InstanceListView: View {
     @ObservedObject var model: InstanceListViewModel
+    @AppStorage("appLanguage") private var languageRaw = AppLanguage.chinese.rawValue
     @State private var isShowingCreateSheet = false
     @State private var instancePendingDeletion: WeChatInstance?
     @State private var searchText = ""
     @State private var selectedStatus: InstanceStatus?
     @State private var isShowingDiagnostics = false
     @State private var selectedApplication: ManagedApplication?
+
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .chinese }
 
     var body: some View {
         ZStack {
@@ -173,6 +176,7 @@ struct InstanceListView: View {
                             searchText: $searchText,
                             selectedStatus: $selectedStatus,
                             selectedApplication: $selectedApplication,
+                            language: language,
                             checkAction: model.checkAll
                         )
                             .padding(.bottom, 12)
@@ -180,6 +184,7 @@ struct InstanceListView: View {
                             ForEach(visibleInstances) { instance in
                                 InstanceCard(
                                     instance: instance,
+                                    language: language,
                                     healthReport: model.healthReports[instance.id],
                                     startAction: { model.start(instance) },
                                     stopAction: { model.stop(instance) },
@@ -196,22 +201,22 @@ struct InstanceListView: View {
             }
         }
         .sheet(isPresented: $isShowingCreateSheet) {
-            CreateInstanceSheet(installedApplications: model.availableApplications, isCreating: model.isCreating) { application, name in
+            CreateInstanceSheet(installedApplications: model.availableApplications, language: language, isCreating: model.isCreating) { application, name in
                 isShowingCreateSheet = false
                 model.createInstance(application: application, named: name)
             }
         }
-        .alert("操作失败", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
-            Button("好", role: .cancel) { model.errorMessage = nil }
+        .alert(tr("操作失败", "Action failed", language), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+            Button(tr("好", "OK", language), role: .cancel) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
-        .confirmationDialog("删除应用实例？", isPresented: Binding(get: { instancePendingDeletion != nil }, set: { if !$0 { instancePendingDeletion = nil } })) {
-            Button("移入废纸篓并删除记录", role: .destructive) {
+        .confirmationDialog(tr("删除应用实例？", "Delete app instance?", language), isPresented: Binding(get: { instancePendingDeletion != nil }, set: { if !$0 { instancePendingDeletion = nil } })) {
+            Button(tr("移入废纸篓并删除记录", "Move to Trash and remove record", language), role: .destructive) {
                 if let instancePendingDeletion { model.delete(instancePendingDeletion) }
                 instancePendingDeletion = nil
             }
-            Button("取消", role: .cancel) { instancePendingDeletion = nil }
+            Button(tr("取消", "Cancel", language), role: .cancel) { instancePendingDeletion = nil }
         } message: {
-            Text("将关闭并把“\(instancePendingDeletion?.name ?? "")”移入废纸篓。")
+            Text(tr("将关闭并把“\(instancePendingDeletion?.name ?? "")”移入废纸篓。", "This closes and moves “\(instancePendingDeletion?.name ?? "")” to Trash.", language))
         }
         .sheet(isPresented: $isShowingDiagnostics) {
             DiagnosticsView(text: model.diagnosticsText())
@@ -229,17 +234,17 @@ struct InstanceListView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("WeBox").font(.system(size: 28, weight: .bold, design: .rounded))
-                Text("多应用实例 · 独立运行 · 受保护应用不复制")
+                Text(tr("多应用实例 · 独立运行 · 受保护应用不复制", "Multi-app · isolated · local only", language))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("\(model.instances.count) 个实例")
+            Text(language.isEnglish ? "\(model.instances.count) instances" : "\(model.instances.count) 个实例")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 4)
             Button { isShowingCreateSheet = true } label: {
-                Label("创建实例", systemImage: "plus")
+                Label(tr("创建实例", "Create", language), systemImage: "plus")
                     .font(.headline)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 11)
@@ -248,16 +253,20 @@ struct InstanceListView: View {
             .controlSize(.large)
             .disabled(model.isCreating)
             Menu {
-                Button { model.checkAll() } label: { Label("检查全部实例", systemImage: "checkmark.shield") }
-                Button { model.startAll(visibleInstances) } label: { Label("启动可见实例", systemImage: "play.fill") }
-                Button { model.stopAll(visibleInstances) } label: { Label("关闭可见实例", systemImage: "stop.fill") }
+                Button { model.checkAll() } label: { Label(tr("检查全部实例", "Check all instances", language), systemImage: "checkmark.shield") }
+                Button { model.startAll(visibleInstances) } label: { Label(tr("启动可见实例", "Start visible", language), systemImage: "play.fill") }
+                Button { model.stopAll(visibleInstances) } label: { Label(tr("关闭可见实例", "Stop visible", language), systemImage: "stop.fill") }
                 Divider()
-                Button { isShowingDiagnostics = true } label: { Label("查看诊断信息", systemImage: "stethoscope") }
+                Button { isShowingDiagnostics = true } label: { Label(tr("查看诊断信息", "Diagnostics", language), systemImage: "stethoscope") }
+                Divider()
+                Picker(tr("语言", "Language", language), selection: $languageRaw) {
+                    ForEach(AppLanguage.allCases) { option in Text(option.name).tag(option.rawValue) }
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
-            .help("更多操作")
+            .help(tr("更多操作", "More actions", language))
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
@@ -275,17 +284,17 @@ struct InstanceListView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Label("本地管理，不读取聊天内容", systemImage: "lock.shield")
+            Label(tr("本地管理，不读取聊天内容", "Local only · no message access", language), systemImage: "lock.shield")
             Divider().frame(height: 12)
             Text("© 2026 YX-NAS")
             Spacer()
-            Text("开发版 v\(AppVersion.current) (\(AppVersion.build))")
-            Text("发布于 \(AppReleaseInfo.date)")
+            Text(language.isEnglish ? "v\(AppVersion.current) (\(AppVersion.build))" : "开发版 v\(AppVersion.current) (\(AppVersion.build))")
+            Text(language.isEnglish ? "Released \(AppReleaseInfo.date)" : "发布于 \(AppReleaseInfo.date)")
             Button(action: AppReleaseInfo.openReleasePage) {
-                Label("检查更新", systemImage: "arrow.triangle.2.circlepath")
+                Label(tr("检查更新", "Check updates", language), systemImage: "arrow.triangle.2.circlepath")
             }
             .buttonStyle(.borderless)
-            .help("在 GitHub Releases 中查看最新版本")
+            .help(tr("在 GitHub Releases 中查看最新版本", "View releases on GitHub", language))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -323,6 +332,7 @@ private struct EmptyInstanceView: View {
 
 private struct InstanceCard: View {
     let instance: WeChatInstance
+    let language: AppLanguage
     let healthReport: InstanceHealthReport?
     let startAction: () -> Void
     let stopAction: () -> Void
@@ -340,13 +350,13 @@ private struct InstanceCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Label(instance.application.displayName, systemImage: instance.application.symbolName)
+                    Label(instance.application.localizedName(language), systemImage: instance.application.symbolName)
                         .font(.caption.weight(.medium)).foregroundStyle(.secondary)
                     Text(instance.name).font(.headline).lineLimit(1)
                     Spacer(minLength: 4)
-                    StatusBadge(status: instance.status)
+                    StatusBadge(status: instance.status, language: language)
                 }
-                Text("\(instance.application.displayName) \(instance.version)")
+                Text("\(instance.application.localizedName(language)) \(instance.version)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(instance.bundleIdentifier)
@@ -362,12 +372,12 @@ private struct InstanceCard: View {
             }
 
             HStack(spacing: 6) {
-                CompactActionButton(title: "启动", icon: "play.fill", tint: .green, action: startAction)
-                CompactActionButton(title: "关闭", icon: "stop.fill", tint: .orange, action: stopAction)
+                CompactActionButton(title: tr("启动", "Start", language), icon: "play.fill", tint: .green, action: startAction)
+                CompactActionButton(title: tr("关闭", "Stop", language), icon: "stop.fill", tint: .orange, action: stopAction)
                 if instance.application.cloneCompatibility.canCreate && (healthReport?.canRepair == true || (healthReport == nil && instance.status == .error)) {
-                    CompactActionButton(title: "修复", icon: "wrench.and.screwdriver", tint: .blue, action: repairAction)
+                    CompactActionButton(title: tr("修复", "Repair", language), icon: "wrench.and.screwdriver", tint: .blue, action: repairAction)
                 }
-                CompactActionButton(title: "删除", icon: "trash", tint: .red, action: deleteAction)
+                CompactActionButton(title: tr("删除", "Delete", language), icon: "trash", tint: .red, action: deleteAction)
             }
         }
         .padding(14)
@@ -389,8 +399,9 @@ private struct InstanceCard: View {
 
 private struct StatusBadge: View {
     let status: InstanceStatus
+    let language: AppLanguage
     var body: some View {
-        Text(status.displayName)
+        Text(status.localizedName(language))
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
@@ -417,6 +428,7 @@ private struct CompactActionButton: View {
 
 private struct CreateInstanceSheet: View {
     let installedApplications: [ManagedApplication]
+    let language: AppLanguage
     let isCreating: Bool
     let createAction: (ManagedApplication, String) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -430,39 +442,39 @@ private struct CreateInstanceSheet: View {
                     .font(.system(size: 38))
                     .foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("创建\(selectedApplication.displayName)实例").font(.title2.bold())
-                    Text("每个实例都是独立的本机应用副本。")
+                    Text(language.isEnglish ? "Create \(selectedApplication.localizedName(language)) instance" : "创建\(selectedApplication.localizedName(language))实例").font(.title2.bold())
+                    Text(tr("每个实例都是独立的本机应用副本。", "Each instance is an independent local app copy.", language))
                         .foregroundStyle(.secondary)
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("应用").font(.headline)
-                Picker("应用", selection: $selectedApplication) {
+                Text(tr("应用", "Application", language)).font(.headline)
+                Picker(tr("应用", "Application", language), selection: $selectedApplication) {
                     ForEach(ManagedApplication.catalogCases, id: \.self) { application in
                         if !installedApplications.contains(application) {
-                            Text("\(application.displayName)（未安装）").tag(application).disabled(true)
+                            Text(language.isEnglish ? "\(application.localizedName(language)) (Not installed)" : "\(application.localizedName(language))（未安装）").tag(application).disabled(true)
                         } else if !application.cloneCompatibility.canCreate {
-                            Text("\(application.displayName)（受保护，不能创建副本）").tag(application).disabled(true)
+                            Text(language.isEnglish ? "\(application.localizedName(language)) (Protected)" : "\(application.localizedName(language))（受保护，不能创建副本）").tag(application).disabled(true)
                         } else {
-                            Label(application.displayName, systemImage: application.symbolName).tag(application)
+                            Label(application.localizedName(language), systemImage: application.symbolName).tag(application)
                         }
                     }
                 }
                 .labelsHidden()
-                Text("实例名称").font(.headline)
-                TextField("例如：工作", text: $name)
+                Text(tr("实例名称", "Instance name", language)).font(.headline)
+                TextField(tr("例如：工作", "e.g. Work", language), text: $name)
                     .textFieldStyle(.roundedBorder)
-                Text("同一应用内同名时会自动添加编号，例如“工作 2”。")
+                Text(tr("同一应用内同名时会自动添加编号，例如“工作 2”。", "Duplicate names are numbered within the same app, e.g. Work 2.", language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             HStack {
                 Spacer()
-                Button("取消") { dismiss() }
+                Button(tr("取消", "Cancel", language)) { dismiss() }
                 Button {
                     createAction(selectedApplication, name)
                 } label: {
-                    Label("创建实例", systemImage: "plus")
+                    Label(tr("创建实例", "Create instance", language), systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!selectedApplication.cloneCompatibility.canCreate || installedApplications.filter(\.cloneCompatibility.canCreate).isEmpty || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
@@ -526,32 +538,33 @@ private struct SummaryStrip: View {
     @Binding var searchText: String
     @Binding var selectedStatus: InstanceStatus?
     @Binding var selectedApplication: ManagedApplication?
+    let language: AppLanguage
     let checkAction: () -> Void
 
     var body: some View {
         HStack(spacing: 18) {
-            metric(title: "全部", value: instances.count, color: .blue)
-            metric(title: "运行中", value: instances.filter { $0.status == .running }.count, color: .green)
-            metric(title: "待更新", value: instances.filter { $0.status == .needUpdate }.count, color: .orange)
+            metric(title: tr("全部", "All", language), value: instances.count, color: .blue)
+            metric(title: tr("运行中", "Running", language), value: instances.filter { $0.status == .running }.count, color: .green)
+            metric(title: tr("待更新", "Updates", language), value: instances.filter { $0.status == .needUpdate }.count, color: .orange)
             Spacer(minLength: 18)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("搜索实例", text: $searchText)
+                TextField(tr("搜索实例", "Search instances", language), text: $searchText)
                     .textFieldStyle(.plain)
                     .frame(width: 210)
-                Picker("状态", selection: $selectedStatus) {
-                    Text("全部").tag(InstanceStatus?.none)
+                Picker(tr("状态", "Status", language), selection: $selectedStatus) {
+                    Text(tr("全部", "All", language)).tag(InstanceStatus?.none)
                     ForEach(InstanceStatus.allCases, id: \.self) { status in
-                        Text(status.displayName).tag(Optional(status))
+                        Text(status.localizedName(language)).tag(Optional(status))
                     }
                 }
                 .labelsHidden()
                 .frame(width: 84)
-                Picker("应用", selection: $selectedApplication) {
-                    Text("所有应用").tag(ManagedApplication?.none)
+                Picker(tr("应用", "App", language), selection: $selectedApplication) {
+                    Text(tr("所有应用", "All apps", language)).tag(ManagedApplication?.none)
                     ForEach(ManagedApplication.catalogCases, id: \.self) { application in
-                        Text(application.displayName).tag(Optional(application))
+                        Text(application.localizedName(language)).tag(Optional(application))
                     }
                 }
                 .labelsHidden()
@@ -561,9 +574,9 @@ private struct SummaryStrip: View {
             .padding(.vertical, 5)
             .background(.quaternary, in: Capsule())
             Spacer(minLength: 18)
-            Button("检查全部", action: checkAction)
+            Button(tr("检查全部", "Check all", language), action: checkAction)
                 .buttonStyle(.borderless)
-            Text("状态每 3 秒自动刷新")
+            Text(tr("状态每 3 秒自动刷新", "Status refreshes every 3 seconds", language))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

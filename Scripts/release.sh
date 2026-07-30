@@ -19,6 +19,7 @@ CORE_SOURCES=(
   "$ROOT"/Database/InstanceRepository.swift
 )
 APP_SOURCES=(
+  "$ROOT/WeBoxApp/AppLanguage.swift"
   "$ROOT/WeBoxApp/WeBoxApp.swift"
   "$ROOT/WeBoxApp/ContentView.swift"
   "$ROOT/WeBoxApp/Views/InstanceListView.swift"
