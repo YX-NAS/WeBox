@@ -5,7 +5,7 @@
 > 本机多应用实例管理工具：独立运行、本地管理、安全隔离。
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.2.1-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.3.0-6C5CE7)
 
 WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Identifier 并重新签名。它只管理本机应用副本和实例状态，不修改客户端协议、不读取消息，也不自动化操作账号。
 
@@ -21,6 +21,8 @@ WeBox 通过创建本机应用副本，为每个副本生成独立的 Bundle Ide
 - 一键检查副本路径、Bundle Identifier、签名及源应用版本；未运行副本可修复签名。
 - 搜索、状态筛选、批量启动/关闭，以及不含账号内容的本地诊断信息。
 - 已通过本机微信、QQ、WhatsApp 的临时副本创建与签名集成测试；独立登录和长期运行仍需在真实账号环境确认。
+- 应用兼容性中心说明“已验证 / 实验性 / 不支持”状态；创建流程显示检查、复制、签名与保存进度。
+- 可导出和导入 WeBox 实例配置 JSON；仅包含实例名称、路径、版本、状态和 Bundle ID，不包含聊天、账号或客户端数据。
 
 ## 使用方式
 
@@ -52,7 +54,7 @@ MIT 开源许可证只处理 WeBox 自己的代码；不代表取得微信、QQ�
 ./Scripts/release.sh
 ```
 
-构建产物位于 `Release/WeBox-v1.2.1-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
+构建产物位于 `Release/WeBox-v1.3.0-arm64-macos13.dmg`。完整设计、验收边界与测试说明见 [Docs/PRODUCT_1.0.md](Docs/PRODUCT_1.0.md) 和 [Docs/TESTING.md](Docs/TESTING.md)。
 
 ## 项目结构
 

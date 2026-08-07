@@ -1,20 +1,29 @@
 import Foundation
 
+public enum InstanceCreationStep: String, Sendable {
+    case validating, copying, updatingIdentifier, signing, saving
+}
+
 public struct InstanceManager: Sendable {
     private let repository: InstanceRepository
     private let cloneEngine = CloneEngine(); private let bundleManager = BundleManager(); private let signatureManager = SignatureManager()
     public init(repository: InstanceRepository) { self.repository = repository }
-    @discardableResult public func createInstance(name: String, sourceInfo: WeChatInfo, installDirectory: String = "/Applications") throws -> WeChatInstance {
+    @discardableResult public func createInstance(name: String, sourceInfo: WeChatInfo, installDirectory: String = "/Applications", progress: (InstanceCreationStep) -> Void = { _ in }) throws -> WeChatInstance {
+        progress(.validating)
         guard sourceInfo.application.cloneCompatibility.canCreate else {
             throw WeBoxError.applicationNotSupported(sourceInfo.application.cloneCompatibility.displayName)
         }
         let (resolvedName, target) = try availableTarget(for: name, application: sourceInfo.application, installDirectory: installDirectory)
         let identifier = bundleManager.bundleIdentifier(for: resolvedName, application: sourceInfo.application)
+        progress(.copying)
         try cloneEngine.clone(sourceApp: sourceInfo.path, targetApp: target)
         do {
+            progress(.updatingIdentifier)
             try bundleManager.updateBundleIdentifier(appPath: target, bundleIdentifier: identifier)
+            progress(.signing)
             try signatureManager.sign(appPath: target)
             let instance = WeChatInstance(application: sourceInfo.application, name: resolvedName, bundleIdentifier: identifier, appPath: target, version: sourceInfo.version, status: .ready)
+            progress(.saving)
             try repository.save(instance)
             return instance
         } catch {

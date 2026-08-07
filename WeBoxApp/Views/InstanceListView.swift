@@ -8,6 +8,7 @@ final class InstanceListViewModel: ObservableObject {
     @Published var healthReports: [UUID: InstanceHealthReport] = [:]
     @Published var errorMessage: String?
     @Published var isCreating = false
+    @Published var creationStep: InstanceCreationStep?
 
     private let repository: InstanceRepository?
     private let detector = ApplicationDetector()
@@ -56,15 +57,19 @@ final class InstanceListViewModel: ObservableObject {
         guard !isCreating else { return }
         guard let repository else { errorMessage = WeBoxError.databaseUnavailable.localizedDescription; return }
         isCreating = true
+        creationStep = .validating
         let detector = detector
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result {
                 let info = try detector.detect(application: application)
-                return try InstanceManager(repository: repository).createInstance(name: name, sourceInfo: info)
+                return try InstanceManager(repository: repository).createInstance(name: name, sourceInfo: info) { step in
+                    DispatchQueue.main.async { [weak self] in self?.creationStep = step }
+                }
             }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isCreating = false
+                self.creationStep = nil
                 if case let .failure(error) = result { self.errorMessage = error.localizedDescription }
                 self.refresh()
             }
@@ -137,6 +142,23 @@ final class InstanceListViewModel: ObservableObject {
         return (header + [""] + rows).joined(separator: "\n\n")
     }
 
+    func exportConfiguration(to url: URL) throws {
+        let data = try ConfigurationBackupManager(repository: requireRepository()).exportData()
+        try data.write(to: url, options: .atomic)
+    }
+
+    func importConfiguration(from url: URL) throws -> Int {
+        let data = try Data(contentsOf: url)
+        let count = try ConfigurationBackupManager(repository: requireRepository()).importData(data)
+        refresh()
+        return count
+    }
+
+    private func requireRepository() throws -> InstanceRepository {
+        guard let repository else { throw WeBoxError.databaseUnavailable }
+        return repository
+    }
+
     private func refreshAfterProcessChange() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.refresh() }
     }
@@ -150,6 +172,8 @@ struct InstanceListView: View {
     @State private var searchText = ""
     @State private var selectedStatus: InstanceStatus?
     @State private var isShowingDiagnostics = false
+    @State private var isShowingCompatibility = false
+    @State private var noticeMessage: String?
     @State private var selectedApplication: ManagedApplication?
 
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .chinese }
@@ -201,7 +225,7 @@ struct InstanceListView: View {
             }
         }
         .sheet(isPresented: $isShowingCreateSheet) {
-            CreateInstanceSheet(installedApplications: model.availableApplications, language: language, isCreating: model.isCreating) { application, name in
+            CreateInstanceSheet(installedApplications: model.availableApplications, language: language, isCreating: model.isCreating, creationStep: model.creationStep) { application, name in
                 isShowingCreateSheet = false
                 model.createInstance(application: application, named: name)
             }
@@ -221,6 +245,12 @@ struct InstanceListView: View {
         .sheet(isPresented: $isShowingDiagnostics) {
             DiagnosticsView(text: model.diagnosticsText())
         }
+        .sheet(isPresented: $isShowingCompatibility) {
+            CompatibilityView(installedApplications: model.availableApplications, language: language)
+        }
+        .alert(tr("完成", "Complete", language), isPresented: Binding(get: { noticeMessage != nil }, set: { if !$0 { noticeMessage = nil } })) {
+            Button(tr("好", "OK", language), role: .cancel) { noticeMessage = nil }
+        } message: { Text(noticeMessage ?? "") }
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             model.refresh()
         }
@@ -258,6 +288,9 @@ struct InstanceListView: View {
                 Button { model.stopAll(visibleInstances) } label: { Label(tr("关闭可见实例", "Stop visible", language), systemImage: "stop.fill") }
                 Divider()
                 Button { isShowingDiagnostics = true } label: { Label(tr("查看诊断信息", "Diagnostics", language), systemImage: "stethoscope") }
+                Button { isShowingCompatibility = true } label: { Label(tr("应用兼容性", "App compatibility", language), systemImage: "checkmark.shield") }
+                Button(action: exportConfiguration) { Label(tr("导出 WeBox 配置", "Export WeBox configuration", language), systemImage: "square.and.arrow.up") }
+                Button(action: importConfiguration) { Label(tr("导入 WeBox 配置", "Import WeBox configuration", language), systemImage: "square.and.arrow.down") }
                 Divider()
                 Picker(tr("语言", "Language", language), selection: $languageRaw) {
                     ForEach(AppLanguage.allCases) { option in Text(option.name).tag(option.rawValue) }
@@ -301,6 +334,29 @@ struct InstanceListView: View {
         .padding(.horizontal, 22)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
+    }
+
+    private func exportConfiguration() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "WeBox-Configuration.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try model.exportConfiguration(to: url)
+            noticeMessage = tr("已导出 WeBox 配置；其中不包含聊天或账号数据。", "WeBox configuration exported. It contains no chat or account data.", language)
+        } catch { model.errorMessage = error.localizedDescription }
+    }
+
+    private func importConfiguration() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let count = try model.importConfiguration(from: url)
+            noticeMessage = language.isEnglish ? "Imported \(count) WeBox configuration records." : "已导入 \(count) 条 WeBox 配置记录。"
+        } catch { model.errorMessage = error.localizedDescription }
     }
 }
 
@@ -430,6 +486,7 @@ private struct CreateInstanceSheet: View {
     let installedApplications: [ManagedApplication]
     let language: AppLanguage
     let isCreating: Bool
+    let creationStep: InstanceCreationStep?
     let createAction: (ManagedApplication, String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -469,6 +526,10 @@ private struct CreateInstanceSheet: View {
                     .foregroundStyle(.secondary)
             }
             HStack {
+                if isCreating, let creationStep {
+                    ProgressView(creationStep.localizedName(language))
+                        .controlSize(.small)
+                }
                 Spacer()
                 Button(tr("取消", "Cancel", language)) { dismiss() }
                 Button {

@@ -44,6 +44,13 @@ do {
     let multiAppInstances = try repository.all()
     expect(multiAppInstances.contains(where: { $0.id == chatGPTInstance.id && $0.application == .chatgpt }), "SQLite 必须保存应用类型")
 
+    let backupData = try ConfigurationBackupManager(repository: repository).exportData()
+    let importedRepository = try InstanceRepository(database: Database(path: root.appendingPathComponent("imported.sqlite").path))
+    let importedCount = try ConfigurationBackupManager(repository: importedRepository).importData(backupData)
+    expect(importedCount == multiAppInstances.count, "配置备份导入记录数错误")
+    let importedInstances = try importedRepository.all()
+    expect(importedInstances.count == multiAppInstances.count, "配置备份导入失败")
+
     let legacyPath = root.appendingPathComponent("legacy.sqlite").path
     let legacyID = UUID().uuidString
     let legacySQL = "CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, bundle_id TEXT NOT NULL, app_path TEXT NOT NULL, version TEXT NOT NULL, status TEXT NOT NULL, created_at REAL NOT NULL); INSERT INTO instances VALUES ('\(legacyID)', '旧微信', 'com.webox.wechat.legacy', '/tmp/Legacy.app', '1.0', 'ready', 0);"

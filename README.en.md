@@ -5,7 +5,7 @@ English | [中文](README.md)
 > A local macOS app-instance manager for isolated app copies and lifecycle control.
 
 ![macOS](https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.2.1-6C5CE7)
+![Version](https://img.shields.io/badge/version-1.3.0-6C5CE7)
 
 WeBox detects supported apps in `/Applications`, creates compatible app copies with unique bundle identifiers, re-signs them, and stores instance status locally. It doesn't read messages, credentials, contacts, or network traffic.
 
@@ -15,6 +15,7 @@ WeBox detects supported apps in `/Applications`, creates compatible app copies w
 - Create and manage compatible WeChat copies plus experimental QQ and WhatsApp copies.
 - Search and filter instances by app and status; start, stop, repair, or move copies to Trash.
 - Local SQLite persistence, health checks, diagnostics, and a menu bar overview.
+- Compatibility center, visible creation progress, and JSON export/import for WeBox configuration only.
 - ChatGPT is intentionally not listed as creatable because its signed Keychain and app-group identity can't be safely preserved after bundle-ID changes.
 
 ## Requirements and limits

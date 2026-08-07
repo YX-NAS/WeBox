@@ -23,6 +23,7 @@ APP_SOURCES=(
   "$ROOT/WeBoxApp/WeBoxApp.swift"
   "$ROOT/WeBoxApp/ContentView.swift"
   "$ROOT/WeBoxApp/Views/InstanceListView.swift"
+  "$ROOT/WeBoxApp/Views/CompatibilityView.swift"
 )
 
 swiftc -target arm64-apple-macosx13.0 \
